@@ -434,6 +434,7 @@
         address: CONTRACT,
         functionName: "register_product",
         args: [productId, claimedOrigin, evidenceUrl],
+        includeReceipt: true,
       });
       const fees = await client.estimateTransactionFeesFromSimulation({ simulation });
       const hash = await client.writeContract({
@@ -526,6 +527,7 @@
         address: CONTRACT,
         functionName: "verify_authenticity",
         args: [productId],
+        includeReceipt: true,
       });
       const fees = await client.estimateTransactionFeesFromSimulation({ simulation });
       const hash = await client.writeContract({
