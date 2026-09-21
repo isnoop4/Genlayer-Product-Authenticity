@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Product Authenticity Registry</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #EAE3D0;
+    --paper-dim: #DED4B9;
+    --ink: #212A38;
+    --ink-soft: #55605E;
+    --brass: #96702F;
+    --brass-dim: #B9975A;
+    --verified: #3F6B4B;
+    --rejected: #8A3B32;
+    --line: #C7BEA0;
+    --line-strong: #A99A72;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Newsreader", Georgia, serif;
+    font-size: 17px;
+    line-height: 1.5;
+  }
+
+  .mono {
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+    font-size: 0.86em;
+    letter-spacing: -0.01em;
+  }
+
+  a { color: var(--brass); text-decoration: none; border-bottom: 1px solid var(--brass-dim); }
+  a:hover { color: var(--ink); border-color: var(--ink); }
+
+  .wrap {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 48px 24px 96px;
+  }
+
+  header.masthead {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 22px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  header.masthead h1 {
+    font-size: 2.1rem;
+    font-weight: 600;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+
+  header.masthead p {
+    margin: 0;
+    color: var(--ink-soft);
+    font-style: italic;
+    max-width: 46ch;
+  }
+
+  .chain-line {
+    text-align: right;
+    color: var(--ink-soft);
+  }
+
+  section.panel {
+    border-bottom: 1px solid var(--line);
+    padding: 30px 0;
+  }
+
+  section.panel:last-of-type { border-bottom: none; }
+
+  h2.section-title {
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin: 0 0 4px;
+  }
+
+  p.section-hint {
+    margin: 0 0 20px;
+    color: var(--ink-soft);
+    font-size: 0.95rem;
+    max-width: 60ch;
+  }
+
+  .grid-two {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+  }
+
+  @media (max-width: 720px) {
+    .grid-two { grid-template-columns: 1fr; gap: 32px; }
+  }
+
+  .field { margin-bottom: 14px; }
+
+  .field label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    margin-bottom: 4px;
+  }
+
+  .field input, .field textarea {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--line-strong);
+    padding: 7px 2px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.92rem;
+    color: var(--ink);
+  }
+
+  .field input:focus, .field textarea:focus {
+    outline: none;
+    border-bottom: 1px solid var(--ink);
+  }
+
+  button {
+    font-family: "Newsreader", Georgia, serif;
+    font-size: 0.95rem;
+    font-weight: 500;
+    background: none;
+    border: 1px solid var(--ink);
+    color: var(--ink);
+    padding: 9px 18px;
+    cursor: pointer;
+    margin-top: 6px;
+  }
+
+  button:hover { background: var(--ink); color: var(--paper); }
+  button:disabled { opacity: 0.4; cursor: default; }
+  button:disabled:hover { background: none; color: var(--ink); }
+
+  button.quiet {
+    border-color: var(--line-strong);
+    color: var(--ink-soft);
+    font-size: 0.82rem;
+    padding: 5px 12px;
+  }
+  button.quiet:hover { background: var(--ink-soft); color: var(--paper); }
+
+  .signer-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .signer-row .field { flex: 1; min-width: 220px; margin-bottom: 0; }
+
+  .status-line {
+    margin-top: 12px;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    min-height: 1.2em;
+  }
+  .status-line.err { color: var(--rejected); }
+  .status-line.ok { color: var(--verified); }
+
+  /* certificate card */
+  .certificate {
+    position: relative;
+    border: 1px solid var(--line-strong);
+    padding: 22px 24px;
+    margin-top: 20px;
+    background: var(--paper-dim);
+    overflow: hidden;
+  }
+
+  .certificate .row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 6px 0;
+    border-bottom: 1px dotted var(--line-strong);
+    font-size: 0.88rem;
+  }
+  .certificate .row:last-child { border-bottom: none; }
+  .certificate .row .k { color: var(--ink-soft); white-space: nowrap; }
+  .certificate .row .v { text-align: right; word-break: break-word; }
+
+  .stamp {
+    position: absolute;
+    top: 18px;
+    right: 22px;
+    border: 3px solid var(--ink-soft);
+    border-radius: 6px;
+    padding: 6px 14px;
+    transform: rotate(-8deg);
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    font-size: 0.9rem;
+    opacity: 0.92;
+  }
+  .stamp.verified { border-color: var(--verified); color: var(--verified); }
+  .stamp.rejected { border-color: var(--rejected); color: var(--rejected); }
+  .stamp.pending { border-color: var(--brass); color: var(--brass); }
+
+  .ledger {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.84rem;
+  }
+  .ledger th {
+    text-align: left;
+    color: var(--ink-soft);
+    font-weight: 500;
+    border-bottom: 1px solid var(--line-strong);
+    padding: 6px 8px 6px 0;
+  }
+  .ledger td {
+    padding: 7px 8px 7px 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  .ledger tr:last-child td { border-bottom: none; }
+  .empty-row td { color: var(--ink-soft); font-style: italic; font-family: "Newsreader", serif; }
+
+  footer {
+    margin-top: 40px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    color: var(--ink-soft);
+    font-size: 0.8rem;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <div>
+      <h1>Product Authenticity Registry</h1>
+      <p>A provenance ledger for supply-chain origin claims, checked against web evidence by consensus.</p>
+    </div>
+    <div class="chain-line mono">
+      GenLayer Studio Next<br>
+      chain 61997
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2 class="section-title">Signer</h2>
+    <p class="section-hint">Entries are written under this account. Paste a Studio Next test private key, or generate one — it stays in this browser only.</p>
+    <div class="signer-row">
+      <div class="field">
+        <label for="pk-input">Private key</label>
+        <input id="pk-input" type="password" placeholder="0x..." autocomplete="off" />
+      </div>
+      <button id="use-key-btn">Use key</button>
+      <button class="quiet" id="gen-key-btn">Generate test key</button>
+    </div>
+    <div class="status-line" id="signer-status">No account loaded.</div>
+  </section>
+
+  <section class="panel">
+    <div class="grid-two">
+      <div>
+        <h2 class="section-title">Register an entry</h2>
+        <p class="section-hint">One entry per product ID. The evidence URL is what the validators will read.</p>
+
+        <div class="field">
+          <label for="reg-id">Product ID</label>
+          <input id="reg-id" placeholder="LEATHER-BAG-004" />
+        </div>
+        <div class="field">
+          <label for="reg-origin">Claimed origin</label>
+          <textarea id="reg-origin" rows="2" placeholder="Genuine full-grain leather, handcrafted in Florence, Italy"></textarea>
+        </div>
+        <div class="field">
+          <label for="reg-url">Evidence URL</label>
+          <input id="reg-url" placeholder="https://..." />
+        </div>
+        <button id="register-btn">Register entry</button>
+        <div class="status-line" id="register-status"></div>
+      </div>
+
+      <div>
+        <h2 class="section-title">Verify / look up</h2>
+        <p class="section-hint">Run verification to have validators judge the evidence, or look up the current record.</p>
+
+        <div class="field">
+          <label for="verify-id">Product ID</label>
+          <input id="verify-id" placeholder="LEATHER-BAG-004" />
+        </div>
+        <button id="verify-btn">Run verification</button>
+        <button class="quiet" id="lookup-btn">Look up entry</button>
+        <div class="status-line" id="verify-status"></div>
+
+        <div class="certificate" id="certificate" style="display:none;">
+          <div class="stamp" id="stamp">PENDING</div>
+          <div class="row"><span class="k">Product ID</span><span class="v mono" id="c-id"></span></div>
+          <div class="row"><span class="k">Claimed origin</span><span class="v" id="c-origin"></span></div>
+          <div class="row"><span class="k">Evidence</span><span class="v mono" id="c-evidence"></span></div>
+          <div class="row"><span class="k">Registered by</span><span class="v mono" id="c-registrant"></span></div>
+          <div class="row"><span class="k">Assessor's note</span><span class="v" id="c-reasoning"></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2 class="section-title">Ledger of transactions</h2>
+    <p class="section-hint">This session's activity, most recent first.</p>
+    <table class="ledger">
+      <thead>
+        <tr><th>Time</th><th>Action</th><th>Product ID</th><th>Result</th><th>Transaction</th></tr>
+      </thead>
+      <tbody id="ledger-body">
+        <tr class="empty-row"><td colspan="5">No entries yet this session.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    Contract <span class="mono">0x364fBeF80326BfA7997735aF009AEa36271aFe37</span> ·
+    <a href="https://explorer-studio-next.genlayer.com/address/0x364fBeF80326BfA7997735aF009AEa36271aFe37" target="_blank" rel="noopener">view on explorer</a>
+  </footer>
+
+</div>
+
+<script type="module">
+  import { createClient, createAccount } from "https://esm.sh/genlayer-js@2.0.0-rc.1";
+  import { studioDevnet } from "https://esm.sh/genlayer-js@2.0.0-rc.1/chains";
+  import { TransactionStatus } from "https://esm.sh/genlayer-js@2.0.0-rc.1/types";
+
+  const CONTRACT = "0x364fBeF80326BfA7997735aF009AEa36271aFe37";
+  const EXPLORER_TX = "https://explorer-studio-next.genlayer.com/tx/";
+
+  let account = null;
+  let client = createClient({ chain: studioDevnet });
+
+  const $ = (id) => document.getElementById(id);
+  const signerStatus = $("signer-status");
+  const registerStatus = $("register-status");
+  const verifyStatus = $("verify-status");
+  const ledgerBody = $("ledger-body");
+
+  function setSigner(acc) {
+    account = acc;
+    client = createClient({ chain: studioDevnet, account });
+    signerStatus.textContent = `Signing as ${acc.address}`;
+    signerStatus.className = "status-line ok";
+  }
+
+  $("use-key-btn").addEventListener("click", () => {
+    const raw = $("pk-input").value.trim();
+    if (!raw) {
+      signerStatus.textContent = "Paste a private key first.";
+      signerStatus.className = "status-line err";
+      return;
+    }
+    try {
+      const acc = createAccount(raw.startsWith("0x") ? raw : "0x" + raw);
+      setSigner(acc);
+    } catch (e) {
+      signerStatus.textContent = "That key didn't parse: " + e.message;
+      signerStatus.className = "status-line err";
+    }
+  });
+
+  $("gen-key-btn").addEventListener("click", () => {
+    const acc = createAccount();
+    $("pk-input").value = acc.privateKey;
+    setSigner(acc);
+    signerStatus.textContent += " — new key, fund it in Studio Next before writing.";
+  });
+
+  function addLedgerRow(action, productId, result, hash) {
+    const emptyRow = ledgerBody.querySelector(".empty-row");
+    if (emptyRow) emptyRow.remove();
+
+    const tr = document.createElement("tr");
+    const time = new Date().toLocaleTimeString();
+    const link = hash
+      ? `<a href="${EXPLORER_TX}${hash}" target="_blank" rel="noopener" class="mono">${hash.slice(0, 10)}…</a>`
+      : "—";
+    tr.innerHTML = `
+      <td class="mono">${time}</td>
+      <td>${action}</td>
+      <td class="mono">${productId}</td>
+      <td>${result}</td>
+      <td>${link}</td>
+    `;
+    ledgerBody.prepend(tr);
+  }
+
+  function requireSigner(statusEl) {
+    if (!account) {
+      statusEl.textContent = "Load a signer first.";
+      statusEl.className = "status-line err";
+      return false;
+    }
+    return true;
+  }
+
+  $("register-btn").addEventListener("click", async () => {
+    if (!requireSigner(registerStatus)) return;
+    const productId = $("reg-id").value.trim();
+    const claimedOrigin = $("reg-origin").value.trim();
+    const evidenceUrl = $("reg-url").value.trim();
+    if (!productId || !claimedOrigin || !evidenceUrl) {
+      registerStatus.textContent = "All three fields are required.";
+      registerStatus.className = "status-line err";
+      return;
+    }
+
+    registerStatus.textContent = "Submitting — this takes a minute while validators finalize.";
+    registerStatus.className = "status-line";
+    $("register-btn").disabled = true;
+
+    try {
+      const hash = await client.writeContract({
+        account,
+        address: CONTRACT,
+        functionName: "register_product",
+        args: [productId, claimedOrigin, evidenceUrl],
+        value: 0n,
+      });
+      await client.waitForTransactionReceipt({
+        hash,
+        status: TransactionStatus.ACCEPTED,
+        retries: 60,
+        interval: 4000,
+      });
+      registerStatus.textContent = `Entry recorded for ${productId}.`;
+      registerStatus.className = "status-line ok";
+      addLedgerRow("Register", productId, "recorded", hash);
+      $("verify-id").value = productId;
+    } catch (e) {
+      registerStatus.textContent = "Could not register: " + e.message;
+      registerStatus.className = "status-line err";
+    } finally {
+      $("register-btn").disabled = false;
+    }
+  });
+
+  function renderCertificate(productId, data, verdictOverride) {
+    const cert = $("certificate");
+    cert.style.display = "block";
+    $("c-id").textContent = data.product_id ?? productId;
+    $("c-origin").textContent = data.claimed_origin ?? "—";
+    $("c-evidence").innerHTML = data.evidence_url
+      ? `<a href="${data.evidence_url}" target="_blank" rel="noopener">${data.evidence_url}</a>`
+      : "—";
+    $("c-registrant").textContent = data.registered_by ?? "—";
+    $("c-reasoning").textContent = data.reasoning || "No assessment yet.";
+
+    const status = verdictOverride ?? data.status ?? "PENDING";
+    const stamp = $("stamp");
+    stamp.textContent = status;
+    stamp.className = "stamp " + status.toLowerCase();
+  }
+
+  $("lookup-btn").addEventListener("click", async () => {
+    const productId = $("verify-id").value.trim();
+    if (!productId) {
+      verifyStatus.textContent = "Enter a product ID first.";
+      verifyStatus.className = "status-line err";
+      return;
+    }
+    verifyStatus.textContent = "Looking up…";
+    verifyStatus.className = "status-line";
+    try {
+      const data = await client.readContract({
+        address: CONTRACT,
+        functionName: "get_product",
+        args: [productId],
+      });
+      renderCertificate(productId, data);
+      verifyStatus.textContent = "";
+    } catch (e) {
+      verifyStatus.textContent = "No record found, or: " + e.message;
+      verifyStatus.className = "status-line err";
+      $("certificate").style.display = "none";
+    }
+  });
+
+  $("verify-btn").addEventListener("click", async () => {
+    if (!requireSigner(verifyStatus)) return;
+    const productId = $("verify-id").value.trim();
+    if (!productId) {
+      verifyStatus.textContent = "Enter a product ID first.";
+      verifyStatus.className = "status-line err";
+      return;
+    }
+
+    verifyStatus.textContent = "Validators are reading the evidence — this takes a minute.";
+    verifyStatus.className = "status-line";
+    $("verify-btn").disabled = true;
+
+    try {
+      const hash = await client.writeContract({
+        account,
+        address: CONTRACT,
+        functionName: "verify_authenticity",
+        args: [productId],
+        value: 0n,
+      });
+      const receipt = await client.waitForTransactionReceipt({
+        hash,
+        status: TransactionStatus.ACCEPTED,
+        retries: 60,
+        interval: 4000,
+      });
+
+      const verdict = receipt?.data?.result ?? null;
+
+      const data = await client.readContract({
+        address: CONTRACT,
+        functionName: "get_product",
+        args: [productId],
+      });
+      renderCertificate(productId, data, verdict);
+      verifyStatus.textContent = `Verdict: ${data.status}.`;
+      verifyStatus.className = data.status === "VERIFIED" ? "status-line ok" : "status-line";
+      addLedgerRow("Verify", productId, data.status, hash);
+    } catch (e) {
+      verifyStatus.textContent = "Could not verify: " + e.message;
+      verifyStatus.className = "status-line err";
+    } finally {
+      $("verify-btn").disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
