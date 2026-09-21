@@ -429,12 +429,24 @@
     $("register-btn").disabled = true;
 
     try {
+      const simulation = await client.simulateWriteContract({
+        account,
+        address: CONTRACT,
+        functionName: "register_product",
+        args: [productId, claimedOrigin, evidenceUrl],
+      });
+      const fees = await client.estimateTransactionFeesFromSimulation({ simulation });
       const hash = await client.writeContract({
         account,
         address: CONTRACT,
         functionName: "register_product",
         args: [productId, claimedOrigin, evidenceUrl],
         value: 0n,
+        fees: {
+          distribution: fees.distribution,
+          messageAllocations: fees.messageAllocations,
+          feeValue: fees.feeValue,
+        },
       });
       await client.waitForTransactionReceipt({
         hash,
@@ -509,12 +521,24 @@
     $("verify-btn").disabled = true;
 
     try {
+      const simulation = await client.simulateWriteContract({
+        account,
+        address: CONTRACT,
+        functionName: "verify_authenticity",
+        args: [productId],
+      });
+      const fees = await client.estimateTransactionFeesFromSimulation({ simulation });
       const hash = await client.writeContract({
         account,
         address: CONTRACT,
         functionName: "verify_authenticity",
         args: [productId],
         value: 0n,
+        fees: {
+          distribution: fees.distribution,
+          messageAllocations: fees.messageAllocations,
+          feeValue: fees.feeValue,
+        },
       });
       const receipt = await client.waitForTransactionReceipt({
         hash,
