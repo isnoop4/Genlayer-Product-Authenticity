@@ -371,10 +371,13 @@
   const ledgerBody = $("ledger-body");
 
   function setSigner(acc, viaWallet = false) {
+    if (viaWallet && typeof acc === "string") {
+      acc = { address: acc, type: "json-rpc" };
+    }
     account = acc;
     usingWallet = viaWallet;
-    client = createClient({ chain: studioDevnet, account });
-    const address = typeof acc === "string" ? acc : acc.address;
+    client = createClient({ chain: studioDevnet, account: acc.address && viaWallet ? acc.address : acc });
+    const address = acc.address;
     signerStatus.textContent = viaWallet
       ? `Signing with wallet ${address}`
       : `Signing as ${address}`;
