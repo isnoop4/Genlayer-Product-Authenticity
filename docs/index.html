@@ -166,16 +166,23 @@
 
   .signer-row .field { flex: 1; min-width: 220px; margin-bottom: 0; }
 
+  .signer-alt {
+    margin: 22px 0 10px;
+    color: var(--ink-soft);
+    font-size: 0.9rem;
+    font-style: italic;
+  }
+
   .status-line {
     margin-top: 12px;
     font-size: 0.85rem;
     color: var(--ink-soft);
     min-height: 1.2em;
+    word-break: break-word;
   }
   .status-line.err { color: var(--rejected); }
   .status-line.ok { color: var(--verified); }
 
-  /* certificate card */
   .certificate {
     position: relative;
     border: 1px solid var(--line-strong);
@@ -260,7 +267,14 @@
 
   <section class="panel">
     <h2 class="section-title">Signer</h2>
-    <p class="section-hint">Entries are written under this account. Paste a Studio Next test private key, or generate one — it stays in this browser only.</p>
+    <p class="section-hint">Entries are written under this account. Connect a browser wallet, or use a test private key. Keys stay in this browser only.</p>
+
+    <div class="signer-row">
+      <button id="connect-btn">Connect wallet</button>
+    </div>
+
+    <p class="signer-alt">No wallet? Use a test key instead.</p>
+
     <div class="signer-row">
       <div class="field">
         <label for="pk-input">Private key</label>
@@ -347,6 +361,7 @@
   const EXPLORER_TX = "https://explorer-studio-next.genlayer.com/tx/";
 
   let account = null;
+  let usingWallet = false;
   let client = createClient({ chain: studioDevnet });
 
   const $ = (id) => document.getElementById(id);
@@ -355,11 +370,72 @@
   const verifyStatus = $("verify-status");
   const ledgerBody = $("ledger-body");
 
-  function setSigner(acc) {
+  function setSigner(acc, viaWallet = false) {
     account = acc;
+    usingWallet = viaWallet;
     client = createClient({ chain: studioDevnet, account });
-    signerStatus.textContent = `Signing as ${acc.address}`;
+    const address = typeof acc === "string" ? acc : acc.address;
+    signerStatus.textContent = viaWallet
+      ? `Signing with wallet ${address}`
+      : `Signing as ${address}`;
     signerStatus.className = "status-line ok";
+  }
+
+  function walletHint() {
+    return usingWallet
+      ? " If the wallet keeps failing, switch to a test private key below."
+      : "";
+  }
+
+  $("connect-btn").addEventListener("click", async () => {
+    if (!window.ethereum) {
+      signerStatus.textContent = "No browser wallet found. Install one, or use a test private key below.";
+      signerStatus.className = "status-line err";
+      return;
+    }
+    signerStatus.textContent = "Waiting for wallet approval…";
+    signerStatus.className = "status-line";
+    try {
+      const [address] = await window.ethereum.request({ method: "eth_requestAccounts" });
+
+      const chainIdHex = "0x" + Number(studioDevnet.id).toString(16);
+      try {
+        await window.ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: chainIdHex }],
+        });
+      } catch (switchErr) {
+        await window.ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [{
+            chainId: chainIdHex,
+            chainName: studioDevnet.name || "GenLayer Studio Next",
+            nativeCurrency: studioDevnet.nativeCurrency || { name: "GEN", symbol: "GEN", decimals: 18 },
+            rpcUrls: studioDevnet.rpcUrls?.default?.http || [],
+          }],
+        });
+      }
+
+      setSigner(address, true);
+    } catch (e) {
+      signerStatus.textContent = "Could not connect wallet: " + (e.message || e);
+      signerStatus.className = "status-line err";
+    }
+  });
+
+  if (window.ethereum?.on) {
+    window.ethereum.on("accountsChanged", (accounts) => {
+      if (!usingWallet) return;
+      if (accounts.length) {
+        setSigner(accounts[0], true);
+      } else {
+        account = null;
+        usingWallet = false;
+        client = createClient({ chain: studioDevnet });
+        signerStatus.textContent = "Wallet disconnected. Connect again or use a test key.";
+        signerStatus.className = "status-line err";
+      }
+    });
   }
 
   $("use-key-btn").addEventListener("click", () => {
@@ -406,7 +482,7 @@
 
   function requireSigner(statusEl) {
     if (!account) {
-      statusEl.textContent = "Load a signer first.";
+      statusEl.textContent = "Connect a wallet or load a test key first.";
       statusEl.className = "status-line err";
       return false;
     }
@@ -424,7 +500,9 @@
       return;
     }
 
-    registerStatus.textContent = "Submitting — this takes a minute while validators finalize.";
+    registerStatus.textContent = usingWallet
+      ? "Confirm the transaction in your wallet, then wait while validators finalize."
+      : "Submitting — this takes a minute while validators finalize.";
     registerStatus.className = "status-line";
     $("register-btn").disabled = true;
 
@@ -460,7 +538,7 @@
       addLedgerRow("Register", productId, "recorded", hash);
       $("verify-id").value = productId;
     } catch (e) {
-      registerStatus.textContent = "Could not register: " + e.message;
+      registerStatus.textContent = "Could not register: " + e.message + walletHint();
       registerStatus.className = "status-line err";
     } finally {
       $("register-btn").disabled = false;
@@ -517,7 +595,9 @@
       return;
     }
 
-    verifyStatus.textContent = "Validators are reading the evidence — this takes a minute.";
+    verifyStatus.textContent = usingWallet
+      ? "Confirm the transaction in your wallet, then wait while validators read the evidence."
+      : "Validators are reading the evidence — this takes a minute.";
     verifyStatus.className = "status-line";
     $("verify-btn").disabled = true;
 
@@ -561,7 +641,7 @@
       verifyStatus.className = data.status === "VERIFIED" ? "status-line ok" : "status-line";
       addLedgerRow("Verify", productId, data.status, hash);
     } catch (e) {
-      verifyStatus.textContent = "Could not verify: " + e.message;
+      verifyStatus.textContent = "Could not verify: " + e.message + walletHint();
       verifyStatus.className = "status-line err";
     } finally {
       $("verify-btn").disabled = false;
