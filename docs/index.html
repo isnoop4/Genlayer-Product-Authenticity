@@ -24,6 +24,8 @@
   * { box-sizing: border-box; }
 
   html, body {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
     margin: 0;
     padding: 0;
     background: var(--paper);
@@ -205,13 +207,12 @@
   .certificate .row .v { text-align: right; word-break: break-word; }
 
   .stamp {
-    position: absolute;
-    top: 18px;
-    right: 22px;
+    display: inline-block;
+    margin: 0 0 14px;
     border: 3px solid var(--ink-soft);
     border-radius: 6px;
     padding: 6px 14px;
-    transform: rotate(-8deg);
+    transform: rotate(-3deg);
     font-family: "IBM Plex Mono", monospace;
     font-weight: 600;
     letter-spacing: 0.06em;
@@ -241,6 +242,27 @@
   }
   .ledger tr:last-child td { border-bottom: none; }
   .empty-row td { color: var(--ink-soft); font-style: italic; font-family: "Newsreader", serif; }
+
+  .spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--line-strong);
+    border-top-color: var(--ink);
+    border-radius: 50%;
+    margin-right: 8px;
+    vertical-align: -1px;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+  .examples {
+    margin: 0 0 16px;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+  }
+  .examples button { margin: 6px 6px 0 0; }
 
   footer {
     margin-top: 40px;
@@ -291,6 +313,12 @@
       <div>
         <h2 class="section-title">Register an entry</h2>
         <p class="section-hint">One entry per product ID. The evidence URL is what the validators will read.</p>
+        <div class="examples">
+          Fill an example:<br>
+          <button class="quiet" data-example="true">Correct claim</button>
+          <button class="quiet" data-example="false">False claim</button>
+          <button class="quiet" data-example="irrelevant">Irrelevant evidence</button>
+        </div>
 
         <div class="field">
           <label for="reg-id">Product ID</label>
@@ -369,6 +397,49 @@
   const registerStatus = $("register-status");
   const verifyStatus = $("verify-status");
   const ledgerBody = $("ledger-body");
+
+  function startWait(el, message) {
+    const started = Date.now();
+    el.className = "status-line";
+    el.innerHTML = '<span class="spinner" aria-hidden="true"></span><span class="wait-msg"></span>';
+    const msgEl = el.querySelector(".wait-msg");
+    const tick = () => {
+      if (!msgEl.isConnected) return;
+      const secs = Math.floor((Date.now() - started) / 1000);
+      msgEl.textContent = `${message} (${secs}s)`;
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }
+
+  const EXAMPLES = {
+    true: {
+      origin: "Swiss Army knives made by Victorinox in Ibach, Canton of Schwyz, Switzerland",
+      url: "https://en.wikipedia.org/wiki/Victorinox",
+    },
+    false: {
+      origin: "Swiss Army knives handcrafted in Solingen, Germany",
+      url: "https://en.wikipedia.org/wiki/Victorinox",
+    },
+    irrelevant: {
+      origin: "Swiss Army knives made by Victorinox in Ibach, Canton of Schwyz, Switzerland",
+      url: "https://en.wikipedia.org/wiki/Leather",
+    },
+  };
+
+  document.querySelectorAll("[data-example]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const ex = EXAMPLES[btn.dataset.example];
+      const id = "VICTORINOX-SAK-" + Math.floor(1000 + Math.random() * 9000);
+      $("reg-id").value = id;
+      $("reg-origin").value = ex.origin;
+      $("reg-url").value = ex.url;
+      $("verify-id").value = id;
+      registerStatus.textContent = "Example filled. Tap Register entry, then Run verification.";
+      registerStatus.className = "status-line";
+    });
+  });
 
   function setSigner(acc, viaWallet = false) {
     if (viaWallet && typeof acc === "string") {
@@ -503,10 +574,12 @@
       return;
     }
 
-    registerStatus.textContent = usingWallet
-      ? "Confirm the transaction in your wallet, then wait while validators finalize."
-      : "Submitting — this takes a minute while validators finalize.";
-    registerStatus.className = "status-line";
+    const stopWait = startWait(
+      registerStatus,
+      usingWallet
+        ? "Confirm in your wallet, then validators finalize"
+        : "Submitting, validators are finalizing"
+    );
     $("register-btn").disabled = true;
 
     try {
@@ -544,6 +617,7 @@
       registerStatus.textContent = "Could not register: " + e.message + walletHint();
       registerStatus.className = "status-line err";
     } finally {
+      stopWait();
       $("register-btn").disabled = false;
     }
   });
@@ -598,10 +672,12 @@
       return;
     }
 
-    verifyStatus.textContent = usingWallet
-      ? "Confirm the transaction in your wallet, then wait while validators read the evidence."
-      : "Validators are reading the evidence — this takes a minute.";
-    verifyStatus.className = "status-line";
+    const stopWait = startWait(
+      verifyStatus,
+      usingWallet
+        ? "Confirm in your wallet, then validators read the evidence"
+        : "Validators are reading the evidence"
+    );
     $("verify-btn").disabled = true;
 
     try {
@@ -647,6 +723,7 @@
       verifyStatus.textContent = "Could not verify: " + e.message + walletHint();
       verifyStatus.className = "status-line err";
     } finally {
+      stopWait();
       $("verify-btn").disabled = false;
     }
   });
