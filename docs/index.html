@@ -244,6 +244,7 @@
   let account = null;
   let usingWallet = false;
   let currentId = "";
+  let currentData = null;
   let client = createClient({ chain: studioDevnet });
 
   const $ = (id) => document.getElementById(id);
@@ -499,6 +500,7 @@
   }
 
   function renderCertificate(d) {
+    currentData = d;
     $("certificate").style.display = "block";
     $("c-id").textContent = d.product_id ?? currentId;
     $("c-origin").textContent = d.claimed_origin ?? "—";
@@ -637,6 +639,12 @@
       const url = $("ch-url").value.trim();
       const reason = $("ch-reason").value.trim();
       if (!url || !reason) { verifyStatus.textContent = "Add a counter-evidence URL and a reason."; verifyStatus.className = "status-line err"; return; }
+      const me = (account?.address || "").toLowerCase();
+      if (me && currentData?.registered_by && me === currentData.registered_by.toLowerCase()) {
+        verifyStatus.textContent = "This wallet registered the entry, and the contract does not let a registrant challenge their own product. Switch to a different wallet.";
+        verifyStatus.className = "status-line err";
+        return;
+      }
       act({
         statusEl: verifyStatus, wait: "validators finalize", verb: "file the challenge", label: "Challenge", id,
         call: () => writeTx("challenge_product", [id, url, reason]),
