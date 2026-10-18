@@ -9,268 +9,101 @@
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --paper: #EAE3D0;
-    --paper-dim: #DED4B9;
-    --ink: #212A38;
-    --ink-soft: #55605E;
-    --brass: #96702F;
-    --brass-dim: #B9975A;
-    --verified: #3F6B4B;
-    --rejected: #8A3B32;
-    --line: #C7BEA0;
-    --line-strong: #A99A72;
+    --paper: #EAE3D0; --paper-dim: #DED4B9; --ink: #212A38; --ink-soft: #55605E;
+    --brass: #96702F; --brass-dim: #B9975A; --verified: #3F6B4B; --rejected: #8A3B32;
+    --line: #C7BEA0; --line-strong: #A99A72;
   }
-
   * { box-sizing: border-box; }
-
   html, body {
-    -webkit-text-size-adjust: 100%;
-    text-size-adjust: 100%;
-    margin: 0;
-    padding: 0;
-    background: var(--paper);
-    color: var(--ink);
-    font-family: "Newsreader", Georgia, serif;
-    font-size: 17px;
-    line-height: 1.5;
+    -webkit-text-size-adjust: 100%; text-size-adjust: 100%; margin: 0; padding: 0;
+    background: var(--paper); color: var(--ink);
+    font-family: "Newsreader", Georgia, serif; font-size: 17px; line-height: 1.5;
   }
-
-  .mono {
-    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
-    font-size: 0.86em;
-    letter-spacing: -0.01em;
-  }
-
+  .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace; font-size: 0.86em; letter-spacing: -0.01em; }
   a { color: var(--brass); text-decoration: none; border-bottom: 1px solid var(--brass-dim); }
   a:hover { color: var(--ink); border-color: var(--ink); }
-
-  .wrap {
-    max-width: 920px;
-    margin: 0 auto;
-    padding: 48px 24px 96px;
-  }
-
+  .wrap { max-width: 920px; margin: 0 auto; padding: 48px 24px 96px; }
   header.masthead {
-    border-bottom: 2px solid var(--ink);
-    padding-bottom: 22px;
-    margin-bottom: 8px;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    flex-wrap: wrap;
-    gap: 12px;
+    border-bottom: 2px solid var(--ink); padding-bottom: 22px; margin-bottom: 8px;
+    display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px;
   }
-
-  header.masthead h1 {
-    font-size: 2.1rem;
-    font-weight: 600;
-    margin: 0 0 6px;
-    letter-spacing: -0.01em;
-  }
-
-  header.masthead p {
-    margin: 0;
-    color: var(--ink-soft);
-    font-style: italic;
-    max-width: 46ch;
-  }
-
-  .chain-line {
-    text-align: right;
-    color: var(--ink-soft);
-  }
-
-  section.panel {
-    border-bottom: 1px solid var(--line);
-    padding: 30px 0;
-  }
-
+  header.masthead h1 { font-size: 2.1rem; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em; }
+  header.masthead p { margin: 0; color: var(--ink-soft); font-style: italic; max-width: 46ch; }
+  .chain-line { text-align: right; color: var(--ink-soft); }
+  section.panel { border-bottom: 1px solid var(--line); padding: 30px 0; }
   section.panel:last-of-type { border-bottom: none; }
-
-  h2.section-title {
-    font-size: 1.15rem;
-    font-weight: 600;
-    margin: 0 0 4px;
-  }
-
-  p.section-hint {
-    margin: 0 0 20px;
-    color: var(--ink-soft);
-    font-size: 0.95rem;
-    max-width: 60ch;
-  }
-
-  .grid-two {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 40px;
-  }
-
-  @media (max-width: 720px) {
-    .grid-two { grid-template-columns: 1fr; gap: 32px; }
-  }
-
+  h2.section-title { font-size: 1.15rem; font-weight: 600; margin: 0 0 4px; }
+  p.section-hint { margin: 0 0 20px; color: var(--ink-soft); font-size: 0.95rem; max-width: 60ch; }
+  .grid-two { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+  @media (max-width: 720px) { .grid-two { grid-template-columns: 1fr; gap: 32px; } }
   .field { margin-bottom: 14px; }
-
-  .field label {
-    display: block;
-    font-size: 0.85rem;
-    color: var(--ink-soft);
-    margin-bottom: 4px;
-  }
-
+  .field label { display: block; font-size: 0.85rem; color: var(--ink-soft); margin-bottom: 4px; }
   .field input, .field textarea {
-    width: 100%;
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid var(--line-strong);
-    padding: 7px 2px;
-    font-family: "IBM Plex Mono", monospace;
-    font-size: 0.92rem;
-    color: var(--ink);
+    width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--line-strong);
+    padding: 7px 2px; font-family: "IBM Plex Mono", monospace; font-size: 0.92rem; color: var(--ink);
   }
-
-  .field input:focus, .field textarea:focus {
-    outline: none;
-    border-bottom: 1px solid var(--ink);
-  }
-
+  .field input:focus, .field textarea:focus { outline: none; border-bottom: 1px solid var(--ink); }
   button {
-    font-family: "Newsreader", Georgia, serif;
-    font-size: 0.95rem;
-    font-weight: 500;
-    background: none;
-    border: 1px solid var(--ink);
-    color: var(--ink);
-    padding: 9px 18px;
-    cursor: pointer;
-    margin-top: 6px;
+    font-family: "Newsreader", Georgia, serif; font-size: 0.95rem; font-weight: 500; background: none;
+    border: 1px solid var(--ink); color: var(--ink); padding: 9px 18px; cursor: pointer; margin-top: 6px;
   }
-
   button:hover { background: var(--ink); color: var(--paper); }
   button:disabled { opacity: 0.4; cursor: default; }
   button:disabled:hover { background: none; color: var(--ink); }
-
-  button.quiet {
-    border-color: var(--line-strong);
-    color: var(--ink-soft);
-    font-size: 0.82rem;
-    padding: 5px 12px;
-  }
+  button.quiet { border-color: var(--line-strong); color: var(--ink-soft); font-size: 0.82rem; padding: 5px 12px; }
   button.quiet:hover { background: var(--ink-soft); color: var(--paper); }
-
-  .signer-row {
-    display: flex;
-    gap: 10px;
-    align-items: flex-end;
-    flex-wrap: wrap;
-  }
-
+  .signer-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
   .signer-row .field { flex: 1; min-width: 220px; margin-bottom: 0; }
-
-  .signer-alt {
-    margin: 22px 0 10px;
-    color: var(--ink-soft);
-    font-size: 0.9rem;
-    font-style: italic;
-  }
-
-  .status-line {
-    margin-top: 12px;
-    font-size: 0.85rem;
-    color: var(--ink-soft);
-    min-height: 1.2em;
-    word-break: break-word;
-  }
+  .signer-alt { margin: 22px 0 10px; color: var(--ink-soft); font-size: 0.9rem; font-style: italic; }
+  .status-line { margin-top: 12px; font-size: 0.85rem; color: var(--ink-soft); min-height: 1.2em; word-break: break-word; }
   .status-line.err { color: var(--rejected); }
   .status-line.ok { color: var(--verified); }
-
   .certificate {
-    position: relative;
-    border: 1px solid var(--line-strong);
-    padding: 22px 24px;
-    margin-top: 20px;
-    background: var(--paper-dim);
-    overflow: hidden;
+    position: relative; border: 1px solid var(--line-strong); padding: 22px 24px; margin-top: 20px;
+    background: var(--paper-dim); overflow: hidden;
   }
-
   .certificate .row {
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 6px 0;
-    border-bottom: 1px dotted var(--line-strong);
-    font-size: 0.88rem;
+    display: flex; justify-content: space-between; gap: 16px; padding: 6px 0;
+    border-bottom: 1px dotted var(--line-strong); font-size: 0.88rem;
   }
-  .certificate .row:last-child { border-bottom: none; }
+  .certificate .row:last-of-type { border-bottom: none; }
   .certificate .row .k { color: var(--ink-soft); white-space: nowrap; }
   .certificate .row .v { text-align: right; word-break: break-word; }
-
   .stamp {
-    display: inline-block;
-    margin: 0 0 14px;
-    border: 3px solid var(--ink-soft);
-    border-radius: 6px;
-    padding: 6px 14px;
-    transform: rotate(-3deg);
-    font-family: "IBM Plex Mono", monospace;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    font-size: 0.9rem;
-    opacity: 0.92;
+    display: inline-block; margin: 0 0 14px; border: 3px solid var(--ink-soft); border-radius: 6px;
+    padding: 6px 14px; transform: rotate(-3deg); font-family: "IBM Plex Mono", monospace;
+    font-weight: 600; letter-spacing: 0.06em; font-size: 0.9rem; opacity: 0.92;
   }
   .stamp.verified { border-color: var(--verified); color: var(--verified); }
   .stamp.rejected { border-color: var(--rejected); color: var(--rejected); }
-  .stamp.pending { border-color: var(--brass); color: var(--brass); }
-
-  .ledger {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.84rem;
-  }
-  .ledger th {
-    text-align: left;
-    color: var(--ink-soft);
-    font-weight: 500;
-    border-bottom: 1px solid var(--line-strong);
-    padding: 6px 8px 6px 0;
-  }
-  .ledger td {
-    padding: 7px 8px 7px 0;
-    border-bottom: 1px solid var(--line);
-    vertical-align: top;
-  }
+  .stamp.pending { border-color: var(--brass); color: var(--brass); border-style: dashed; }
+  .stamp.disputed { border-color: var(--brass); color: var(--brass); }
+  .stamp.revoked { border-color: var(--rejected); color: var(--rejected); background: rgba(138,59,50,.1); text-decoration: line-through; text-decoration-thickness: 2px; }
+  .actions { border-top: 1px dotted var(--line-strong); margin-top: 14px; padding-top: 14px; font-size: 0.9rem; }
+  .actions p { margin: 0 0 10px; }
+  .actions .note { color: var(--ink-soft); }
+  .actions .warn { color: var(--brass); }
+  .history { border-top: 1px dotted var(--line-strong); margin-top: 14px; padding-top: 12px; }
+  .history .k { color: var(--ink-soft); font-size: 0.85rem; }
+  ol.timeline { list-style: none; margin: 8px 0 0; padding: 0 0 0 12px; border-left: 2px solid var(--line-strong); }
+  ol.timeline li { padding: 2px 0 8px 10px; font-size: 0.84rem; word-break: break-word; }
+  ol.timeline b { font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 0.78rem; }
+  .ledger { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+  .ledger th { text-align: left; color: var(--ink-soft); font-weight: 500; border-bottom: 1px solid var(--line-strong); padding: 6px 8px 6px 0; }
+  .ledger td { padding: 7px 8px 7px 0; border-bottom: 1px solid var(--line); vertical-align: top; word-break: break-word; }
   .ledger tr:last-child td { border-bottom: none; }
   .empty-row td { color: var(--ink-soft); font-style: italic; font-family: "Newsreader", serif; }
-
+  .scroll-x { overflow-x: auto; }
   .spinner {
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    border: 2px solid var(--line-strong);
-    border-top-color: var(--ink);
-    border-radius: 50%;
-    margin-right: 8px;
-    vertical-align: -1px;
+    display: inline-block; width: 12px; height: 12px; border: 2px solid var(--line-strong);
+    border-top-color: var(--ink); border-radius: 50%; margin-right: 8px; vertical-align: -1px;
     animation: spin 0.9s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
-
-  .examples {
-    margin: 0 0 16px;
-    font-size: 0.85rem;
-    color: var(--ink-soft);
-  }
+  .examples { margin: 0 0 16px; font-size: 0.85rem; color: var(--ink-soft); }
   .examples button { margin: 6px 6px 0 0; }
-
-  footer {
-    margin-top: 40px;
-    padding-top: 18px;
-    border-top: 1px solid var(--line);
-    color: var(--ink-soft);
-    font-size: 0.8rem;
-  }
+  footer { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: 0.8rem; }
 </style>
 </head>
 <body>
@@ -279,7 +112,7 @@
   <header class="masthead">
     <div>
       <h1>Product Authenticity Registry</h1>
-      <p>A provenance ledger for supply-chain origin claims, checked against web evidence by consensus.</p>
+      <p>A provenance ledger for supply-chain origin claims, checked against web evidence by consensus and open to challenge.</p>
     </div>
     <div class="chain-line mono">
       GenLayer Studio Next<br>
@@ -337,8 +170,8 @@
       </div>
 
       <div>
-        <h2 class="section-title">Verify / look up</h2>
-        <p class="section-hint">Run verification to have validators judge the evidence, or look up the current record.</p>
+        <h2 class="section-title">Verify, challenge, look up</h2>
+        <p class="section-hint">Look up an entry to see its record and the actions open to it. Verification and rulings are decided by validator consensus.</p>
 
         <div class="field">
           <label for="verify-id">Product ID</label>
@@ -355,27 +188,45 @@
           <div class="row"><span class="k">Evidence</span><span class="v mono" id="c-evidence"></span></div>
           <div class="row"><span class="k">Registered by</span><span class="v mono" id="c-registrant"></span></div>
           <div class="row"><span class="k">Assessor's note</span><span class="v" id="c-reasoning"></span></div>
+          <div class="row"><span class="k">Challenges used</span><span class="v mono" id="c-challenges"></span></div>
+          <div class="actions" id="actions"></div>
+          <div class="history"><span class="k">History</span><ol class="timeline" id="history"></ol></div>
         </div>
       </div>
     </div>
   </section>
 
   <section class="panel">
+    <h2 class="section-title">Registry</h2>
+    <p class="section-hint">Every entry on the contract. Open one to see its record.</p>
+    <div class="scroll-x">
+      <table class="ledger">
+        <thead><tr><th>Product ID</th><th>Claimed origin</th><th>Status</th><th></th></tr></thead>
+        <tbody id="registry-body"><tr class="empty-row"><td colspan="4">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <button class="quiet" id="refresh-btn">Refresh list</button>
+  </section>
+
+  <section class="panel">
     <h2 class="section-title">Ledger of transactions</h2>
     <p class="section-hint">This session's activity, most recent first.</p>
-    <table class="ledger">
-      <thead>
-        <tr><th>Time</th><th>Action</th><th>Product ID</th><th>Result</th><th>Transaction</th></tr>
-      </thead>
-      <tbody id="ledger-body">
-        <tr class="empty-row"><td colspan="5">No entries yet this session.</td></tr>
-      </tbody>
-    </table>
+    <div class="scroll-x">
+      <table class="ledger">
+        <thead>
+          <tr><th>Time</th><th>Action</th><th>Product ID</th><th>Result</th><th>Transaction</th></tr>
+        </thead>
+        <tbody id="ledger-body">
+          <tr class="empty-row"><td colspan="5">No entries yet this session.</td></tr>
+        </tbody>
+      </table>
+    </div>
   </section>
 
   <footer>
-    Contract <span class="mono">0x364fBeF80326BfA7997735aF009AEa36271aFe37</span> ·
-    <a href="https://explorer-studio-next.genlayer.com/address/0x364fBeF80326BfA7997735aF009AEa36271aFe37" target="_blank" rel="noopener">view on explorer</a>
+    Contract <span class="mono" id="contract-addr"></span> ·
+    <a id="explorer-link" target="_blank" rel="noopener">view on explorer</a> ·
+    <a id="repo-link" target="_blank" rel="noopener">source on GitHub</a>
   </footer>
 
 </div>
@@ -385,11 +236,14 @@
   import { studioDevnet } from "https://esm.sh/genlayer-js@2.0.0-rc.1/chains";
   import { TransactionStatus } from "https://esm.sh/genlayer-js@2.0.0-rc.1/types";
 
-  const CONTRACT = "0x364fBeF80326BfA7997735aF009AEa36271aFe37";
-  const EXPLORER_TX = "https://explorer-studio-next.genlayer.com/tx/";
+  const CONTRACT = "0xF03531aE59C9a071a5591eD9764102c5aa377491";
+  const REPO = "https://github.com/isnoop4/Genlayer-Product-Authenticity";
+  const EXPLORER = "https://explorer-studio-next.genlayer.com/";
+  const EXPLORER_TX = EXPLORER + "tx/";
 
   let account = null;
   let usingWallet = false;
+  let currentId = "";
   let client = createClient({ chain: studioDevnet });
 
   const $ = (id) => document.getElementById(id);
@@ -397,6 +251,23 @@
   const registerStatus = $("register-status");
   const verifyStatus = $("verify-status");
   const ledgerBody = $("ledger-body");
+
+  $("contract-addr").textContent = CONTRACT;
+  $("explorer-link").href = EXPLORER + "address/" + CONTRACT;
+  $("repo-link").href = REPO;
+
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const link = (u) => /^https?:\/\//i.test(u || "")
+    ? `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(u)}</a>`
+    : esc(u || "—");
+  const short = (a) => (a ? a.slice(0, 6) + "…" + a.slice(-4) : "");
+  function plain(v) {
+    if (v instanceof Map) return Object.fromEntries([...v].map(([k, x]) => [k, plain(x)]));
+    if (Array.isArray(v)) return v.map(plain);
+    if (typeof v === "bigint") return Number(v);
+    if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, plain(x)]));
+    return v;
+  }
 
   function startWait(el, message) {
     const started = Date.now();
@@ -541,15 +412,15 @@
 
     const tr = document.createElement("tr");
     const time = new Date().toLocaleTimeString();
-    const link = hash
-      ? `<a href="${EXPLORER_TX}${hash}" target="_blank" rel="noopener" class="mono">${hash.slice(0, 10)}…</a>`
+    const txLink = hash
+      ? `<a href="${EXPLORER_TX}${esc(hash)}" target="_blank" rel="noopener" class="mono">${esc(hash.slice(0, 10))}…</a>`
       : "—";
     tr.innerHTML = `
       <td class="mono">${time}</td>
-      <td>${action}</td>
-      <td class="mono">${productId}</td>
-      <td>${result}</td>
-      <td>${link}</td>
+      <td>${esc(action)}</td>
+      <td class="mono">${esc(productId)}</td>
+      <td>${esc(result)}</td>
+      <td>${txLink}</td>
     `;
     ledgerBody.prepend(tr);
   }
@@ -563,8 +434,150 @@
     return true;
   }
 
-  $("register-btn").addEventListener("click", async () => {
-    if (!requireSigner(registerStatus)) return;
+  const setBusy = (v) => document.querySelectorAll("button").forEach((b) => (b.disabled = v));
+
+  // One write: simulate, estimate fees, send, wait for acceptance.
+  async function writeTx(functionName, args) {
+    const base = { account, address: CONTRACT, functionName, args };
+    const simulation = await client.simulateWriteContract({ ...base, includeReceipt: true });
+    const fees = await client.estimateTransactionFeesFromSimulation({ simulation });
+    const hash = await client.writeContract({
+      ...base,
+      value: 0n,
+      fees: {
+        distribution: fees.distribution,
+        messageAllocations: fees.messageAllocations,
+        feeValue: fees.feeValue,
+      },
+    });
+    await client.waitForTransactionReceipt({
+      hash,
+      status: TransactionStatus.ACCEPTED,
+      retries: 60,
+      interval: 4000,
+    });
+    return hash;
+  }
+
+  const readProduct = async (id) =>
+    plain(await client.readContract({ address: CONTRACT, functionName: "get_product", args: [id] }));
+
+  function eventText(e) {
+    switch (e.type) {
+      case "REGISTER": return `<b>Registered</b> by ${esc(short(e.by))}`;
+      case "VERIFY": return `<b>Verification: ${esc(e.verdict)}</b> ${esc(e.reasoning)}`;
+      case "EVIDENCE_UPDATED": return `<b>Evidence updated</b> ${link(e.evidence_url)}`;
+      case "CHALLENGE": return `<b>Challenged</b> by ${esc(short(e.by))}: ${esc(e.reason)}`;
+      case "RULING": return `<b>Ruling: ${esc(e.ruling)}</b> ${esc(e.reasoning)}`;
+      default: return esc(e.type);
+    }
+  }
+
+  function actionsHtml(d) {
+    switch (d.status) {
+      case "PENDING":
+        return `<p class="note">Waiting for validators to read the evidence. Use Run verification above.</p>`;
+      case "REJECTED":
+        return `<p class="note">Rejected. The registrant can submit better evidence and try again.</p>
+          <div class="field"><label for="new-url">New evidence URL</label><input id="new-url" placeholder="https://..." /></div>
+          <button data-act="update">Submit new evidence</button>`;
+      case "VERIFIED":
+        return `<p><b>Think this claim is wrong?</b> Challenge it with a page that contradicts it.
+          <span class="note">(The registrant cannot challenge their own entry. Up to ${esc(d.max_challenges)} challenges per entry.)</span></p>
+          <div class="field"><label for="ch-url">Counter-evidence URL</label><input id="ch-url" placeholder="https://..." /></div>
+          <div class="field"><label for="ch-reason">Why it contradicts the claim</label><textarea id="ch-reason" rows="2" maxlength="500"></textarea></div>
+          <button data-act="challenge">File challenge</button>`;
+      case "DISPUTED":
+        return `<p class="warn"><b>Open challenge.</b> ${esc(d.challenge_reason)}</p>
+          <p class="mono">Counter-evidence: ${link(d.counter_evidence)}</p>
+          <button data-act="resolve">Ask validators to rule</button>`;
+      case "REVOKED":
+        return `<p class="note">A challenge was upheld. This claim is no longer trusted.</p>`;
+      default:
+        return "";
+    }
+  }
+
+  function renderCertificate(d) {
+    $("certificate").style.display = "block";
+    $("c-id").textContent = d.product_id ?? currentId;
+    $("c-origin").textContent = d.claimed_origin ?? "—";
+    $("c-evidence").innerHTML = link(d.evidence_url);
+    $("c-registrant").textContent = d.registered_by ?? "—";
+    $("c-reasoning").textContent = d.reasoning || "No assessment yet.";
+    $("c-challenges").textContent = `${d.challenges_used ?? 0} of ${d.max_challenges ?? 3}`;
+
+    const status = d.status ?? "PENDING";
+    const stamp = $("stamp");
+    stamp.textContent = status;
+    stamp.className = "stamp " + status.toLowerCase();
+
+    $("actions").innerHTML = actionsHtml(d);
+    $("history").innerHTML = (d.history || []).map((e) => `<li>${eventText(e)}</li>`).join("");
+  }
+
+  async function lookup(id) {
+    currentId = id;
+    $("verify-id").value = id;
+    verifyStatus.textContent = "Looking up…";
+    verifyStatus.className = "status-line";
+    try {
+      renderCertificate(await readProduct(id));
+      verifyStatus.textContent = "";
+    } catch (e) {
+      verifyStatus.textContent = "No record found, or: " + e.message;
+      verifyStatus.className = "status-line err";
+      $("certificate").style.display = "none";
+    }
+  }
+
+  // Shared runner for every state-changing action.
+  async function act({ statusEl, wait, verb, label, id, call, check }) {
+    if (!requireSigner(statusEl)) return;
+    const stopWait = startWait(statusEl, usingWallet ? "Confirm in your wallet, then " + wait : wait);
+    setBusy(true);
+    try {
+      const hash = await call();
+      currentId = id;
+      $("verify-id").value = id;
+      const data = await readProduct(id);
+      renderCertificate(data);
+      const r = check(data);
+      statusEl.textContent = r.text;
+      statusEl.className = "status-line" + (r.ok ? " ok" : "");
+      addLedgerRow(label, id, data.status, hash);
+      loadRegistry();
+    } catch (e) {
+      statusEl.textContent = `Could not ${verb}: ` + e.message + walletHint();
+      statusEl.className = "status-line err";
+    } finally {
+      stopWait();
+      setBusy(false);
+    }
+  }
+
+  async function loadRegistry() {
+    const body = $("registry-body");
+    try {
+      const res = plain(await client.readContract({
+        address: CONTRACT, functionName: "get_products", args: [0n, 50n],
+      }));
+      const items = res.items || [];
+      if (!items.length) {
+        body.innerHTML = '<tr class="empty-row"><td colspan="4">No entries yet. Register the first one above.</td></tr>';
+        return;
+      }
+      body.innerHTML = items.map((i) => `<tr>
+        <td class="mono">${esc(i.product_id)}</td>
+        <td>${esc(i.claimed_origin)}</td>
+        <td class="mono">${esc(i.status)}</td>
+        <td><button class="quiet" data-open="${esc(i.product_id)}">Open</button></td></tr>`).join("");
+    } catch (e) {
+      body.innerHTML = `<tr class="empty-row"><td colspan="4">Could not load the registry: ${esc(e.message)}</td></tr>`;
+    }
+  }
+
+  $("register-btn").addEventListener("click", () => {
     const productId = $("reg-id").value.trim();
     const claimedOrigin = $("reg-origin").value.trim();
     const evidenceUrl = $("reg-url").value.trim();
@@ -573,160 +586,83 @@
       registerStatus.className = "status-line err";
       return;
     }
-
-    const stopWait = startWait(
-      registerStatus,
-      usingWallet
-        ? "Confirm in your wallet, then validators finalize"
-        : "Submitting, validators are finalizing"
-    );
-    $("register-btn").disabled = true;
-
-    try {
-      const simulation = await client.simulateWriteContract({
-        account,
-        address: CONTRACT,
-        functionName: "register_product",
-        args: [productId, claimedOrigin, evidenceUrl],
-        includeReceipt: true,
-      });
-      const fees = await client.estimateTransactionFeesFromSimulation({ simulation });
-      const hash = await client.writeContract({
-        account,
-        address: CONTRACT,
-        functionName: "register_product",
-        args: [productId, claimedOrigin, evidenceUrl],
-        value: 0n,
-        fees: {
-          distribution: fees.distribution,
-          messageAllocations: fees.messageAllocations,
-          feeValue: fees.feeValue,
-        },
-      });
-      await client.waitForTransactionReceipt({
-        hash,
-        status: TransactionStatus.ACCEPTED,
-        retries: 60,
-        interval: 4000,
-      });
-      registerStatus.textContent = `Entry recorded for ${productId}.`;
-      registerStatus.className = "status-line ok";
-      addLedgerRow("Register", productId, "recorded", hash);
-      $("verify-id").value = productId;
-    } catch (e) {
-      registerStatus.textContent = "Could not register: " + e.message + walletHint();
-      registerStatus.className = "status-line err";
-    } finally {
-      stopWait();
-      $("register-btn").disabled = false;
-    }
+    act({
+      statusEl: registerStatus, wait: "validators finalize", verb: "register", label: "Register", id: productId,
+      call: () => writeTx("register_product", [productId, claimedOrigin, evidenceUrl]),
+      check: () => ({ text: `Entry recorded for ${productId}.`, ok: true }),
+    });
   });
 
-  function renderCertificate(productId, data, verdictOverride) {
-    const cert = $("certificate");
-    cert.style.display = "block";
-    $("c-id").textContent = data.product_id ?? productId;
-    $("c-origin").textContent = data.claimed_origin ?? "—";
-    $("c-evidence").innerHTML = data.evidence_url
-      ? `<a href="${data.evidence_url}" target="_blank" rel="noopener">${data.evidence_url}</a>`
-      : "—";
-    $("c-registrant").textContent = data.registered_by ?? "—";
-    $("c-reasoning").textContent = data.reasoning || "No assessment yet.";
-
-    const status = verdictOverride ?? data.status ?? "PENDING";
-    const stamp = $("stamp");
-    stamp.textContent = status;
-    stamp.className = "stamp " + status.toLowerCase();
-  }
-
-  $("lookup-btn").addEventListener("click", async () => {
-    const productId = $("verify-id").value.trim();
-    if (!productId) {
+  $("lookup-btn").addEventListener("click", () => {
+    const id = $("verify-id").value.trim();
+    if (!id) {
       verifyStatus.textContent = "Enter a product ID first.";
       verifyStatus.className = "status-line err";
       return;
     }
-    verifyStatus.textContent = "Looking up…";
-    verifyStatus.className = "status-line";
-    try {
-      const data = await client.readContract({
-        address: CONTRACT,
-        functionName: "get_product",
-        args: [productId],
-      });
-      renderCertificate(productId, data);
-      verifyStatus.textContent = "";
-    } catch (e) {
-      verifyStatus.textContent = "No record found, or: " + e.message;
-      verifyStatus.className = "status-line err";
-      $("certificate").style.display = "none";
-    }
+    lookup(id);
   });
 
-  $("verify-btn").addEventListener("click", async () => {
-    if (!requireSigner(verifyStatus)) return;
-    const productId = $("verify-id").value.trim();
-    if (!productId) {
+  $("verify-btn").addEventListener("click", () => {
+    const id = $("verify-id").value.trim();
+    if (!id) {
       verifyStatus.textContent = "Enter a product ID first.";
       verifyStatus.className = "status-line err";
       return;
     }
+    act({
+      statusEl: verifyStatus, wait: "validators read the evidence", verb: "verify", label: "Verify", id,
+      call: () => writeTx("verify_authenticity", [id]),
+      check: (d) => d.status === "PENDING"
+        ? { text: "Validators did not reach consensus, so the status is still PENDING. Run verification again." }
+        : { text: `Verdict: ${d.status}.`, ok: d.status === "VERIFIED" },
+    });
+  });
 
-    const stopWait = startWait(
-      verifyStatus,
-      usingWallet
-        ? "Confirm in your wallet, then validators read the evidence"
-        : "Validators are reading the evidence"
-    );
-    $("verify-btn").disabled = true;
-
-    try {
-      const simulation = await client.simulateWriteContract({
-        account,
-        address: CONTRACT,
-        functionName: "verify_authenticity",
-        args: [productId],
-        includeReceipt: true,
+  // Buttons that appear inside the certificate depending on status.
+  $("actions").addEventListener("click", (ev) => {
+    const kind = ev.target.dataset?.act;
+    if (!kind) return;
+    const id = currentId;
+    if (kind === "update") {
+      const url = $("new-url").value.trim();
+      if (!url) { verifyStatus.textContent = "Enter the new evidence URL."; verifyStatus.className = "status-line err"; return; }
+      act({
+        statusEl: verifyStatus, wait: "validators finalize", verb: "update evidence", label: "Update evidence", id,
+        call: () => writeTx("update_evidence", [id, url]),
+        check: () => ({ text: "Evidence updated. Run verification again.", ok: true }),
       });
-      const fees = await client.estimateTransactionFeesFromSimulation({ simulation });
-      const hash = await client.writeContract({
-        account,
-        address: CONTRACT,
-        functionName: "verify_authenticity",
-        args: [productId],
-        value: 0n,
-        fees: {
-          distribution: fees.distribution,
-          messageAllocations: fees.messageAllocations,
-          feeValue: fees.feeValue,
-        },
+    }
+    if (kind === "challenge") {
+      const url = $("ch-url").value.trim();
+      const reason = $("ch-reason").value.trim();
+      if (!url || !reason) { verifyStatus.textContent = "Add a counter-evidence URL and a reason."; verifyStatus.className = "status-line err"; return; }
+      act({
+        statusEl: verifyStatus, wait: "validators finalize", verb: "file the challenge", label: "Challenge", id,
+        call: () => writeTx("challenge_product", [id, url, reason]),
+        check: () => ({ text: "Challenge filed. Ask validators to rule below.", ok: true }),
       });
-      const receipt = await client.waitForTransactionReceipt({
-        hash,
-        status: TransactionStatus.ACCEPTED,
-        retries: 60,
-        interval: 4000,
+    }
+    if (kind === "resolve") {
+      act({
+        statusEl: verifyStatus, wait: "validators weigh both pieces of evidence", verb: "resolve the challenge", label: "Resolve", id,
+        call: () => writeTx("resolve_challenge", [id]),
+        check: (d) => d.status === "REVOKED"
+          ? { text: "Challenge upheld: the claim is revoked." }
+          : d.status === "VERIFIED"
+            ? { text: "Challenge dismissed: the claim stands.", ok: true }
+            : { text: "Validators did not reach consensus, so the entry is still DISPUTED. Try again." },
       });
-
-      const verdict = receipt?.data?.result ?? null;
-
-      const data = await client.readContract({
-        address: CONTRACT,
-        functionName: "get_product",
-        args: [productId],
-      });
-      renderCertificate(productId, data, verdict);
-      verifyStatus.textContent = `Verdict: ${data.status}.`;
-      verifyStatus.className = data.status === "VERIFIED" ? "status-line ok" : "status-line";
-      addLedgerRow("Verify", productId, data.status, hash);
-    } catch (e) {
-      verifyStatus.textContent = "Could not verify: " + e.message + walletHint();
-      verifyStatus.className = "status-line err";
-    } finally {
-      stopWait();
-      $("verify-btn").disabled = false;
     }
   });
+
+  $("registry-body").addEventListener("click", (ev) => {
+    const id = ev.target.dataset?.open;
+    if (id) lookup(id);
+  });
+  $("refresh-btn").addEventListener("click", loadRegistry);
+
+  loadRegistry();
 </script>
 </body>
 </html>
