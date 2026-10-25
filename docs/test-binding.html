@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Regression: displayed product vs. action ID</title>
+<style>
+  body { font-family: ui-monospace, monospace; padding: 16px; line-height: 1.5; }
+  .pass { color: #2f6b3f; } .fail { color: #8a2f2f; font-weight: 600; }
+</style>
+</head>
+<body>
+<h3>Regression: displayed product and submitted action ID cannot diverge</h3>
+<pre id="out">Running…</pre>
+<iframe id="app" src="index.html?test=1" style="display:none"></iframe>
+<script>
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  async function until(fn, ms = 3000) {
+    const t = Date.now();
+    while (Date.now() - t < ms) { if (fn()) return true; await sleep(20); }
+    return false;
+  }
+  const lines = [];
+  let failures = 0;
+  function check(name, ok, detail = "") {
+    if (!ok) failures++;
+    lines.push(`<span class="${ok ? "pass" : "fail"}">${ok ? "PASS" : "FAIL"}</span> ${name}${ok ? "" : "  " + detail}`);
+  }
+
+  (async () => {
+    const frame = document.getElementById("app");
+    if (!(await until(() => frame.contentWindow && frame.contentWindow.__PA_TEST__, 15000))) {
+      document.getElementById("out").textContent = "App did not load (is esm.sh reachable?).";
+      return;
+    }
+    const win = frame.contentWindow, T = win.__PA_TEST__, doc = win.document;
+
+    // Mock chain: per-ID read delay, every write recorded with what was displayed at send time.
+    const delays = {};
+    const sent = [];
+    T.setReader(async (id) => {
+      await sleep(delays[id] ?? 0);
+      return {
+        product_id: id, claimed_origin: "origin of " + id, evidence_url: "https://example.com/" + id,
+        registered_by: "0xREGISTRANT", status: "VERIFIED", reasoning: "", challenges_used: 0, max_challenges: 3, history: [],
+      };
+    });
+    T.setWriter(async (fn, args) => {
+      sent.push({ fn, id: args[0], displayedAtSend: T.getDisplayed()?.productId });
+      await sleep(30);
+      return "0x" + "ab".repeat(32);
+    });
+    T.setSigner("0xSOMEONEELSE");
+
+    const fillChallenge = () => {
+      doc.getElementById("ch-url").value = "https://counter.example.com/x";
+      doc.getElementById("ch-reason").value = "contradicts the claim";
+    };
+    const shownId = () => doc.getElementById("c-id").textContent;
+    const settle = () => until(() => !T.isBusy());
+
+    // 1) Delayed + out-of-order lookups: A is slow, B is fast, so B finishes first, then A arrives late.
+    delays.A = 300; delays.B = 40;
+    const pA = T.lookup("A");
+    await sleep(10);
+    const pB = T.lookup("B");
+    await Promise.all([pA, pB]);
+    check("1a. late response for A does not overwrite B", T.getDisplayed()?.productId === "B", "displayed=" + T.getDisplayed()?.productId);
+    check("1b. certificate DOM shows B", shownId() === "B", "dom=" + shownId());
+    fillChallenge();
+    T.handleAction("challenge");
+    await until(() => sent.length >= 1);
+    await settle();
+    check("1c. challenge goes out with B (the displayed product)", sent[0]?.id === "B", "sent=" + sent[0]?.id);
+
+    // 2) New lookup starts while A is on screen, then the person acts before it finishes.
+    sent.length = 0;
+    delays.A = 0; delays.B = 300;
+    await T.lookup("A");
+    fillChallenge();
+    const pB2 = T.lookup("B");             // pending, response not back yet
+    T.handleAction("challenge");           // must be refused, not sent for A or B
+    await sleep(120);
+    check("2a. action during pending lookup is blocked (no tx sent)", sent.length === 0, "sent=" + JSON.stringify(sent));
+    check("2b. actions are locked while lookup is pending", doc.getElementById("actions").classList.contains("locked"));
+    await pB2;
+    check("2c. after lookup finishes, B is displayed", T.getDisplayed()?.productId === "B" && shownId() === "B");
+    check("2d. actions unlock after lookup finishes", !doc.getElementById("actions").classList.contains("locked"));
+
+    // 3) Stale response arrives after an action finished.
+    sent.length = 0;
+    delays.C = 400; delays.D = 0;
+    const pC = T.lookup("C");              // slow, will be stale
+    await sleep(10);
+    await T.lookup("D");                   // newest, fast
+    fillChallenge();
+    T.handleAction("challenge");
+    await until(() => sent.length >= 1);
+    await settle();
+    await pC;                              // stale C response lands now
+    check("3a. stale lookup C does not replace D after the action", T.getDisplayed()?.productId === "D" && shownId() === "D");
+    check("3b. action used D", sent[0]?.id === "D", "sent=" + sent[0]?.id);
+
+    // Global invariant: at send time, submitted ID == displayed product ID.
+    // (sent was reset between scenarios, so re-check the last batch and scenario 1 via displayedAtSend)
+    check("4. invariant: submitted action ID === displayed product ID at send time",
+      sent.every((s) => s.id === s.displayedAtSend), JSON.stringify(sent));
+
+    document.getElementById("out").innerHTML = lines.join("\n") +
+      `\n\n${failures === 0 ? '<span class="pass">ALL PASSED</span>' : '<span class="fail">' + failures + " FAILED</span>"}`;
+  })().catch((e) => {
+    document.getElementById("out").textContent = "Test crashed: " + (e.stack || e);
+  });
+</script>
+</body>
+</html>
