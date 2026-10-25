@@ -80,6 +80,7 @@
   .stamp.disputed { border-color: var(--brass); color: var(--brass); }
   .stamp.revoked { border-color: var(--rejected); color: var(--rejected); background: rgba(138,59,50,.1); text-decoration: line-through; text-decoration-thickness: 2px; }
   .actions { border-top: 1px dotted var(--line-strong); margin-top: 14px; padding-top: 14px; font-size: 0.9rem; }
+  .actions.locked { opacity: 0.5; pointer-events: none; }
   .actions p { margin: 0 0 10px; }
   .actions .note { color: var(--ink-soft); }
   .actions .warn { color: var(--brass); }
@@ -171,7 +172,7 @@
 
       <div>
         <h2 class="section-title">Verify, challenge, look up</h2>
-        <p class="section-hint">Look up an entry to see its record and the actions open to it. Verification and rulings are decided by validator consensus.</p>
+        <p class="section-hint">Look up an entry to see its record and the actions open to it. Challenge, ruling and evidence updates always apply to the entry shown below, never to the text in the field. Verification and rulings are decided by validator consensus.</p>
 
         <div class="field">
           <label for="verify-id">Product ID</label>
@@ -241,11 +242,23 @@
   const EXPLORER = "https://explorer-studio-next.genlayer.com/";
   const EXPLORER_TX = EXPLORER + "tx/";
 
+  // Test mode (index.html?test=1) exposes hooks for docs/test-binding.html.
+  // Without the query flag nothing is exposed and the chain is used as normal.
+  const test = new URLSearchParams(location.search).has("test") ? {} : null;
+
   let account = null;
   let usingWallet = false;
-  let currentId = "";
-  let currentData = null;
   let client = createClient({ chain: studioDevnet });
+
+  // ---- Single source of truth for "the product currently displayed" ----
+  // Every challenge / resolve / update-evidence action reads its product ID from
+  // `displayed`, never from the input field or from the last lookup started.
+  // `displayed` is replaced atomically, in the same step that renders the certificate.
+  let displayed = null;      // { productId, data, version }
+  let renderVersion = 0;
+  let reqSeq = 0;            // token for lookups / actions; only the latest may render
+  let pendingLookup = null;  // token of a lookup still loading, else null
+  let busy = false;          // a write is in progress
 
   const $ = (id) => document.getElementById(id);
   const signerStatus = $("signer-status");
@@ -435,13 +448,41 @@
     return true;
   }
 
-  const setBusy = (v) => document.querySelectorAll("button").forEach((b) => (b.disabled = v));
+  // Locks the in-certificate action buttons while a lookup is loading or a write is running.
+  function syncLock() {
+    const locked = pendingLookup !== null;
+    const actionsEl = $("actions");
+    actionsEl.classList.toggle("locked", locked);
+    actionsEl.querySelectorAll("[data-act]").forEach((b) => (b.disabled = locked || busy));
+  }
 
-  // One write: simulate, estimate fees, send, wait for acceptance.
-  async function writeTx(functionName, args) {
+  const setBusy = (v) => {
+    busy = v;
+    document.querySelectorAll("button").forEach((b) => (b.disabled = v));
+    syncLock();
+  };
+
+  // `bound` = { productId, version } of the displayed certificate the action was started from.
+  // It is checked before simulating and again right before sending, so the product ID that
+  // goes on-chain can never differ from the product the person is looking at.
+  async function writeTx(functionName, args, bound = null) {
+    const guard = () => {
+      if (!bound) return;
+      if (!displayed
+        || displayed.productId !== bound.productId
+        || displayed.version !== bound.version
+        || args[0] !== bound.productId) {
+        throw new Error("The displayed product changed before sending. Nothing was submitted. Look the entry up again.");
+      }
+    };
+    guard();
+
+    if (test?.writer) return test.writer(functionName, args);
+
     const base = { account, address: CONTRACT, functionName, args };
     const simulation = await client.simulateWriteContract({ ...base, includeReceipt: true });
     const fees = await client.estimateTransactionFeesFromSimulation({ simulation });
+    guard();
     const hash = await client.writeContract({
       ...base,
       value: 0n,
@@ -461,7 +502,9 @@
   }
 
   const readProduct = async (id) =>
-    plain(await client.readContract({ address: CONTRACT, functionName: "get_product", args: [id] }));
+    test?.reader
+      ? test.reader(id)
+      : plain(await client.readContract({ address: CONTRACT, functionName: "get_product", args: [id] }));
 
   function eventText(e) {
     switch (e.type) {
@@ -499,10 +542,13 @@
     }
   }
 
-  function renderCertificate(d) {
-    currentData = d;
+  // Swaps `displayed` and the whole certificate in one synchronous step.
+  function renderCertificate(d, id) {
+    displayed = { productId: id, data: d, version: ++renderVersion };
+    $("actions").dataset.productId = id;
+
     $("certificate").style.display = "block";
-    $("c-id").textContent = d.product_id ?? currentId;
+    $("c-id").textContent = id;
     $("c-origin").textContent = d.claimed_origin ?? "—";
     $("c-evidence").innerHTML = link(d.evidence_url);
     $("c-registrant").textContent = d.registered_by ?? "—";
@@ -516,34 +562,57 @@
 
     $("actions").innerHTML = actionsHtml(d);
     $("history").innerHTML = (d.history || []).map((e) => `<li>${eventText(e)}</li>`).join("");
+    syncLock();
+  }
+
+  function clearDisplayed() {
+    displayed = null;
+    delete $("actions").dataset.productId;
+    $("actions").innerHTML = "";
+    $("certificate").style.display = "none";
+    syncLock();
   }
 
   async function lookup(id) {
-    currentId = id;
-    $("verify-id").value = id;
+    const my = ++reqSeq;          // newest lookup wins
+    pendingLookup = my;
+    syncLock();                   // old certificate stays visible but its actions are locked
     verifyStatus.textContent = "Looking up…";
     verifyStatus.className = "status-line";
     try {
-      renderCertificate(await readProduct(id));
+      const data = await readProduct(id);
+      if (my !== reqSeq) return;  // stale or out-of-order response: drop it
+      pendingLookup = null;
+      renderCertificate(data, id);
+      $("verify-id").value = id;
       verifyStatus.textContent = "";
     } catch (e) {
+      if (my !== reqSeq) return;
+      pendingLookup = null;
+      clearDisplayed();
       verifyStatus.textContent = "No record found, or: " + e.message;
       verifyStatus.className = "status-line err";
-      $("certificate").style.display = "none";
     }
   }
 
   // Shared runner for every state-changing action.
+  // `id` is passed in explicitly by the caller and never re-read from shared state.
   async function act({ statusEl, wait, verb, label, id, call, check }) {
     if (!requireSigner(statusEl)) return;
+    const my = ++reqSeq;          // invalidates any lookup still in flight
+    if (pendingLookup !== null) {
+      pendingLookup = null;
+      if (statusEl !== verifyStatus) verifyStatus.textContent = "";
+    }
     const stopWait = startWait(statusEl, usingWallet ? "Confirm in your wallet, then " + wait : wait);
     setBusy(true);
     try {
       const hash = await call();
-      currentId = id;
-      $("verify-id").value = id;
       const data = await readProduct(id);
-      renderCertificate(data);
+      if (my === reqSeq) {
+        renderCertificate(data, id);
+        $("verify-id").value = id;
+      }
       const r = check(data);
       statusEl.textContent = r.text;
       statusEl.className = "status-line" + (r.ok ? " ok" : "");
@@ -559,6 +628,7 @@
   }
 
   async function loadRegistry() {
+    if (test) return;
     const body = $("registry-body");
     try {
       const res = plain(await client.readContract({
@@ -621,40 +691,57 @@
     });
   });
 
-  // Buttons that appear inside the certificate depending on status.
-  $("actions").addEventListener("click", (ev) => {
-    const kind = ev.target.dataset?.act;
-    if (!kind) return;
-    const id = currentId;
+  // The target of challenge / resolve / update-evidence: the certificate on screen, or null
+  // when it cannot be trusted right now (a lookup is loading, or DOM and state disagree).
+  function boundTarget() {
+    if (pendingLookup !== null) {
+      verifyStatus.textContent = "Another lookup is still loading. Wait for it to finish, then act on the entry shown.";
+      verifyStatus.className = "status-line err";
+      return null;
+    }
+    if (!displayed || $("actions").dataset.productId !== displayed.productId) {
+      verifyStatus.textContent = "No entry is displayed. Look one up first.";
+      verifyStatus.className = "status-line err";
+      return null;
+    }
+    return { productId: displayed.productId, version: displayed.version };
+  }
+
+  function handleAction(kind) {
+    const bound = boundTarget();
+    if (!bound) return;
+    const id = bound.productId;   // snapshot: this is the only ID these actions ever use
+    const data = displayed.data;
+
     if (kind === "update") {
-      const url = $("new-url").value.trim();
+      const url = $("new-url")?.value.trim();
       if (!url) { verifyStatus.textContent = "Enter the new evidence URL."; verifyStatus.className = "status-line err"; return; }
       act({
         statusEl: verifyStatus, wait: "validators finalize", verb: "update evidence", label: "Update evidence", id,
-        call: () => writeTx("update_evidence", [id, url]),
+        call: () => writeTx("update_evidence", [id, url], bound),
         check: () => ({ text: "Evidence updated. Run verification again.", ok: true }),
       });
     }
     if (kind === "challenge") {
-      const url = $("ch-url").value.trim();
-      const reason = $("ch-reason").value.trim();
+      const url = $("ch-url")?.value.trim();
+      const reason = $("ch-reason")?.value.trim();
       if (!url || !reason) { verifyStatus.textContent = "Add a counter-evidence URL and a reason."; verifyStatus.className = "status-line err"; return; }
       const me = (account?.address || "").toLowerCase();
-      if (me && currentData?.registered_by && me === currentData.registered_by.toLowerCase()) {
+      if (me && data?.registered_by && me === data.registered_by.toLowerCase()) {
         verifyStatus.textContent = "This wallet registered the entry, and the contract does not let a registrant challenge their own product. Switch to a different wallet.";
         verifyStatus.className = "status-line err";
         return;
       }
       act({
         statusEl: verifyStatus, wait: "validators finalize", verb: "file the challenge", label: "Challenge", id,
-        call: () => writeTx("challenge_product", [id, url, reason]),
+        call: () => writeTx("challenge_product", [id, url, reason], bound),
         check: () => ({ text: "Challenge filed. Ask validators to rule below.", ok: true }),
       });
     }
     if (kind === "resolve") {
       act({
         statusEl: verifyStatus, wait: "validators weigh both pieces of evidence", verb: "resolve the challenge", label: "Resolve", id,
-        call: () => writeTx("resolve_challenge", [id]),
+        call: () => writeTx("resolve_challenge", [id], bound),
         check: (d) => d.status === "REVOKED"
           ? { text: "Challenge upheld: the claim is revoked." }
           : d.status === "VERIFIED"
@@ -662,6 +749,13 @@
             : { text: "Validators did not reach consensus, so the entry is still DISPUTED. Try again." },
       });
     }
+  }
+
+  // Buttons that appear inside the certificate depending on status.
+  $("actions").addEventListener("click", (ev) => {
+    const btn = ev.target.closest?.("[data-act]");
+    if (!btn || btn.disabled) return;
+    handleAction(btn.dataset.act);
   });
 
   $("registry-body").addEventListener("click", (ev) => {
@@ -669,6 +763,19 @@
     if (id) lookup(id);
   });
   $("refresh-btn").addEventListener("click", loadRegistry);
+
+  if (test) {
+    Object.assign(test, {
+      setReader: (fn) => { test.reader = fn; },
+      setWriter: (fn) => { test.writer = fn; },
+      setSigner: (address) => { account = { address }; usingWallet = false; },
+      lookup,
+      handleAction,
+      isBusy: () => busy,
+      getDisplayed: () => (displayed ? { productId: displayed.productId, version: displayed.version } : null),
+    });
+    window.__PA_TEST__ = test;
+  }
 
   loadRegistry();
 </script>
