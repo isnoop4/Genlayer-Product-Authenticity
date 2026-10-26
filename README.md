@@ -74,3 +74,17 @@ Open `index.html` through any static host (GitHub Pages is used for the live dem
 - `Product_authenticity.py`: the Intelligent Contract
 - `index.html`: single-file frontend
 - `README.md`: this file
+
+## Regression test: displayed product vs. action ID
+
+Challenge, resolve and update-evidence actions are bound to the product currently displayed, never to the lookup input. Lookups carry a sequence token, so delayed or out-of-order responses are discarded, actions are locked while a lookup is pending, and the transaction layer re-checks that the submitted product ID equals the displayed one before sending.
+
+Run: https://isnoop4.github.io/Genlayer-Product-Authenticity/test-binding.html
+
+Result (commit 9f47c1f): 10/10 checks pass.
+- Slow lookup A + fast lookup B: B stays displayed, challenge is sent for B
+- Action clicked while a lookup is pending: blocked, no tx sent
+- Stale lookup arriving after an action: does not replace the displayed product
+- Invariant: submitted action ID === displayed product ID at send time
+
+Note: the test uses a mocked chain, so it checks front-end binding logic, not on-chain behavior.
