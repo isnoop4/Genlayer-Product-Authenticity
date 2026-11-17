@@ -162,13 +162,37 @@ const same = (a, b) => !!a && !!b && a.toLowerCase() === b.toLowerCase();
 $("meta").innerHTML = `Contract <a href="${EXPLORER}" target="_blank" rel="noopener">${short(CONTRACT)}</a> · Studio Next (chain 61997)`;
 
 // ---------- clients ----------
-const readClient = createClient({ chain });
+// A throwaway account only supplies a "from" address for read calls; it never signs or holds anything.
+const readAccount = createAccount();
+const readClient = createClient({ chain, account: readAccount });
 log(`Chain ${chain?.name ?? "?"} (id ${chain?.id ?? "?"}). SDK chains: ${Object.keys(chains).join(", ")}`);
 let writeClient = null;
 let me = null; // address string
 
+// Studio Next may reject a read as "Missing or invalid parameters" depending on SDK/runtime version,
+// so try a few call shapes and remember the first one that works.
+const READ_VARIANTS = [
+  (b) => b,
+  (b) => ({ ...b, account: readAccount }),
+  (b) => ({ ...b, transactionHashVariant: "latest-nonfinal" }),
+  (b) => ({ ...b, account: readAccount, transactionHashVariant: "latest-nonfinal" }),
+  (b) => ({ ...b, account: readAccount, leaderOnly: true }),
+];
+let readMode = 0;
 async function read(functionName, args = []) {
-  return toObj(await readClient.readContract({ address: CONTRACT, functionName, args }));
+  const base = { address: CONTRACT, functionName, args };
+  let lastErr;
+  for (let i = readMode; i < READ_VARIANTS.length; i++) {
+    try {
+      const out = toObj(await readClient.readContract(READ_VARIANTS[i](base)));
+      if (i !== readMode) { readMode = i; log("Read call shape #" + i + " works."); }
+      return out;
+    } catch (e) {
+      lastErr = e;
+      if (!/invalid param|missing/i.test((e.shortMessage || "") + " " + (e.message || ""))) throw e;
+    }
+  }
+  throw lastErr;
 }
 
 function setAccount(address, client) {
