@@ -1,9 +1,22 @@
-# { "Depends": "py-genlayer:5jycge4q8k23462jtb0b9fyey1s9qz928sz2nbrd9mg4sxqg2qng" }
+# v0.3.0
+# { "Depends": "py-genlayer:babwp9t37jw9g4j2bccgn14g6x7x9s1f7dsmh7emvz735pz4zxa0" }
+
+# Product Authenticity Registry v2
+# v0: one verdict per claim
+# v1: challenge -> validator-ruled dispute
+# v2: bonds (skin in the game) + one appeal round before settlement
+#
+# Bonds are internal units (testnet-friendly): deposit() credits free balance.
+# Replace with native value transfers for mainnet.
 import json
 import typing
 import genlayer as gl
+from genlayer.types import *
 
 MAX_CHALLENGES = 3
+BOND = 100          # locked by registrant at register, and by challenger at challenge
+APPEAL_BOND = 200   # locked by the round-1 loser when appealing
+MAX_DEPOSIT = 10000
 
 
 def _parse_json(text):
@@ -19,6 +32,14 @@ def _parse_json(text):
 def _require(c, product_id):
     if product_id not in c.status:
         raise gl.vm.UserError(f"product_id '{product_id}' is not registered")
+
+
+def _expect(c, product_id, expected_status):
+    # Stale-state guard: the action must match the status the caller saw on screen.
+    if c.status[product_id] != expected_status:
+        raise gl.vm.UserError(
+            f"status changed: expected {expected_status}, got {c.status[product_id]}"
+        )
 
 
 def _log(c, product_id, event):
@@ -45,11 +66,172 @@ def _challenges_used(c, product_id):
     return len([e for e in events if e.get("type") == "CHALLENGE"])
 
 
+# ------------------------------------------------------------------ bond ledger
+
+def _free(c, addr):
+    return int(c.balances[addr]) if addr in c.balances else 0
+
+
+def _locked(c, addr):
+    return int(c.locked[addr]) if addr in c.locked else 0
+
+
+def _lock(c, addr, amount):
+    if _free(c, addr) < amount:
+        raise gl.vm.UserError(f"insufficient bond balance: need {amount}, call deposit()")
+    c.balances[addr] = str(_free(c, addr) - amount)
+    c.locked[addr] = str(_locked(c, addr) + amount)
+
+
+def _release(c, addr, amount):
+    if amount <= 0:
+        return
+    c.locked[addr] = str(_locked(c, addr) - amount)
+    c.balances[addr] = str(_free(c, addr) + amount)
+
+
+def _slash(c, loser, winner, amount):
+    if amount <= 0:
+        return
+    c.locked[loser] = str(_locked(c, loser) - amount)
+    c.balances[winner] = str(_free(c, winner) + amount)
+
+
+# ------------------------------------------------------------------ arbitration
+
+def _run_ruling(claimed_origin, original_url, counter_url, reason, strict):
+    """Nondet ruling. Caller must read storage into locals first."""
+
+    def leader_fn() -> str:
+        try:
+            counter_text = gl.nondet.web.render(counter_url, mode="text")
+        except Exception as e:
+            return json.dumps({
+                "ruling": "DISMISSED",
+                "reasoning": f"Could not retrieve counter-evidence: {e}",
+            })
+        try:
+            original_text = gl.nondet.web.render(original_url, mode="text")
+        except Exception:
+            original_text = "(original evidence page unavailable)"
+
+        extra = ""
+        if strict:
+            extra = (
+                "THIS IS AN APPEAL ROUND: be strict. Rule UPHELD only if the "
+                "counter-evidence DIRECTLY and explicitly contradicts the claimed "
+                "origin. Weak, indirect, generic or off-topic material is DISMISSED.\n"
+            )
+
+        prompt = f"""You are the arbiter of a dispute in an on-chain product-authenticity
+registry. A product's origin claim was VERIFIED earlier. A challenger now
+submits counter-evidence. Rule UPHELD only if the counter-evidence explicitly
+and specifically contradicts the claimed origin of THIS product. Vague,
+generic, unrelated, or merely suspicious material must be DISMISSED. Do not
+judge how official or well-known either website is; judge only what the text says.
+{extra}
+Claimed origin: {claimed_origin}
+Challenger's reason: {reason}
+
+Original evidence:
+---
+{original_text[:3000]}
+---
+
+Counter-evidence:
+---
+{counter_text[:3000]}
+---
+
+Respond with ONLY a JSON object, no preamble, no markdown fences, in exactly
+this shape:
+{{"ruling": "UPHELD" or "DISMISSED", "reasoning": "<one short sentence>"}}"""
+
+        response = gl.nondet.exec_prompt(prompt)
+        try:
+            parsed = _parse_json(response)
+            ruling = parsed.get("ruling")
+            if ruling not in ("UPHELD", "DISMISSED"):
+                ruling = "DISMISSED"
+            return json.dumps({
+                "ruling": ruling,
+                "reasoning": str(parsed.get("reasoning", ""))[:300],
+            })
+        except Exception:
+            return json.dumps({
+                "ruling": "DISMISSED",
+                "reasoning": "Non-JSON or malformed model response",
+            })
+
+    def validator_fn(leaders_res) -> bool:
+        if not isinstance(leaders_res, gl.vm.Return):
+            return False
+        try:
+            own_parsed = json.loads(leader_fn())
+            leader_parsed = json.loads(leaders_res.calldata)
+        except Exception:
+            return False
+        return leader_parsed.get("ruling") == own_parsed.get("ruling")
+
+    raw_result = gl.vm.run_nondet_default(leader_fn, validator_fn)
+
+    try:
+        parsed = json.loads(raw_result)
+        ruling = parsed.get("ruling", "DISMISSED")
+        reasoning_text = parsed.get("reasoning", "")
+    except Exception:
+        ruling = "DISMISSED"
+        reasoning_text = "Non-JSON or malformed validator response"
+    if ruling not in ("UPHELD", "DISMISSED"):
+        ruling = "DISMISSED"
+    return ruling, reasoning_text
+
+
+def _settle(c, product_id):
+    """Move bonds according to the final ruling and set the final status."""
+    seller = c.registered_by[product_id].lower()
+    chal = c.challenger[product_id].lower()
+    upheld = c.ruling[product_id] == "UPHELD"
+    seller_bond = int(c.seller_bond[product_id])
+    chal_bond = int(c.challenger_bond[product_id])
+
+    if upheld:
+        winner, loser = chal, seller
+        _slash(c, seller, chal, seller_bond)      # registrant loses bond to challenger
+        _release(c, chal, chal_bond)              # challenger bond returned
+        c.seller_bond[product_id] = "0"
+    else:
+        winner, loser = seller, chal
+        _slash(c, chal, seller, chal_bond)        # challenger loses bond to registrant
+        # seller bond stays locked behind the restored claim
+
+    appeal_bond = int(c.appeal_bond[product_id])
+    appellant = c.appellant[product_id]
+    if appeal_bond > 0:
+        if appellant == winner:
+            _release(c, appellant, appeal_bond)   # appeal flipped the result
+        else:
+            _slash(c, appellant, winner, appeal_bond)
+
+    rounds = c.ruling_round[product_id]
+    c.challenger_bond[product_id] = "0"
+    c.appeal_bond[product_id] = "0"
+    c.appellant[product_id] = ""
+    c.ruling_round[product_id] = "0"
+    c.status[product_id] = "REVOKED" if upheld else "VERIFIED"
+    _log(c, product_id, {
+        "type": "SETTLED",
+        "final": c.status[product_id],
+        "winner": winner,
+        "rounds": rounds,
+    })
+
+
 class ProductAuthenticity(gl.contract.Contract):
     claimed_origin: gl.storage.TreeMap[str, str]
     evidence_url: gl.storage.TreeMap[str, str]
     registered_by: gl.storage.TreeMap[str, str]
-    # "PENDING" | "VERIFIED" | "REJECTED" | "DISPUTED" | "REVOKED"
+    # "PENDING" | "VERIFIED" | "REJECTED" | "DISPUTED" | "RULED" | "REVOKED"
     status: gl.storage.TreeMap[str, str]
     reasoning: gl.storage.TreeMap[str, str]
     # --- v1: challenge mechanism ---
@@ -58,9 +240,28 @@ class ProductAuthenticity(gl.contract.Contract):
     challenge_reason: gl.storage.TreeMap[str, str]
     history: gl.storage.TreeMap[str, str]  # JSON list of events per product
     index: gl.storage.TreeMap[str, str]  # key "all" -> JSON list of product_ids
+    # --- v2: bonds + appeal ---
+    balances: gl.storage.TreeMap[str, str]       # address -> free units (int as str)
+    locked: gl.storage.TreeMap[str, str]         # address -> locked units
+    seller_bond: gl.storage.TreeMap[str, str]    # product -> units locked by registrant
+    challenger_bond: gl.storage.TreeMap[str, str]
+    appeal_bond: gl.storage.TreeMap[str, str]
+    appellant: gl.storage.TreeMap[str, str]
+    ruling: gl.storage.TreeMap[str, str]         # latest ruling: UPHELD | DISMISSED | ""
+    ruling_round: gl.storage.TreeMap[str, str]   # "0" none | "1" first ruling | "2" appeal ruling
 
     def __init__(self):
         pass
+
+    # ------------------------------------------------------------------- bonds
+
+    @gl.public.write
+    def deposit(self, amount: u256) -> None:
+        amount = int(amount)
+        if amount <= 0 or amount > MAX_DEPOSIT:
+            raise gl.vm.UserError(f"amount must be 1..{MAX_DEPOSIT}")
+        sender = gl.message.sender_address.as_hex.lower()
+        self.balances[sender] = str(_free(self, sender) + amount)
 
     # ------------------------------------------------------------------ writes
 
@@ -76,6 +277,8 @@ class ProductAuthenticity(gl.contract.Contract):
             raise gl.vm.UserError(f"product_id '{product_id}' is already registered")
 
         sender = gl.message.sender_address.as_hex
+        _lock(self, sender.lower(), BOND)
+
         self.claimed_origin[product_id] = claimed_origin
         self.evidence_url[product_id] = evidence_url
         self.registered_by[product_id] = sender
@@ -85,6 +288,12 @@ class ProductAuthenticity(gl.contract.Contract):
         self.counter_evidence[product_id] = ""
         self.challenge_reason[product_id] = ""
         self.history[product_id] = "[]"
+        self.seller_bond[product_id] = str(BOND)
+        self.challenger_bond[product_id] = "0"
+        self.appeal_bond[product_id] = "0"
+        self.appellant[product_id] = ""
+        self.ruling[product_id] = ""
+        self.ruling_round[product_id] = "0"
 
         ids = _all_ids(self)
         ids.append(product_id)
@@ -94,7 +303,7 @@ class ProductAuthenticity(gl.contract.Contract):
     @gl.public.write
     def verify_authenticity(self, product_id: str) -> typing.Any:
         _require(self, product_id)
-        # v1: only PENDING products can be verified. Settled verdicts change
+        # Only PENDING products can be verified. Settled verdicts change
         # only through update_evidence (REJECTED) or the challenge flow.
         if self.status[product_id] != "PENDING":
             raise gl.vm.UserError(
@@ -174,6 +383,11 @@ this shape:
 
         self.status[product_id] = verdict
         self.reasoning[product_id] = reasoning_text
+        if verdict == "REJECTED":
+            # Nothing is disputed: free the registrant bond until evidence is updated.
+            seller = self.registered_by[product_id].lower()
+            _release(self, seller, int(self.seller_bond[product_id]))
+            self.seller_bond[product_id] = "0"
         _log(self, product_id, {"type": "VERIFY", "verdict": verdict, "reasoning": reasoning_text})
         return verdict
 
@@ -189,6 +403,8 @@ this shape:
         if not new_evidence_url:
             raise gl.vm.UserError("new_evidence_url is required")
 
+        _lock(self, sender.lower(), BOND)
+        self.seller_bond[product_id] = str(BOND)
         self.evidence_url[product_id] = new_evidence_url
         self.status[product_id] = "PENDING"
         self.reasoning[product_id] = ""
@@ -196,10 +412,15 @@ this shape:
 
     @gl.public.write
     def challenge_product(
-        self, product_id: str, counter_evidence_url: str, reason: str
+        self,
+        product_id: str,
+        counter_evidence_url: str,
+        reason: str,
+        expected_status: str,
     ) -> None:
-        """Anyone except the registrant can contest a VERIFIED claim."""
+        """Anyone except the registrant can contest a VERIFIED claim (locks a bond)."""
         _require(self, product_id)
+        _expect(self, product_id, expected_status)
         if not counter_evidence_url or not reason:
             raise gl.vm.UserError("counter_evidence_url and reason are required")
         if self.status[product_id] != "VERIFIED":
@@ -218,9 +439,13 @@ this shape:
         if any(e.get("counter_evidence") == counter_evidence_url for e in used):
             raise gl.vm.UserError("this counter-evidence URL was already used in a challenge")
 
+        _lock(self, sender.lower(), BOND)
         self.challenger[product_id] = sender
         self.counter_evidence[product_id] = counter_evidence_url
         self.challenge_reason[product_id] = reason[:500]
+        self.challenger_bond[product_id] = str(BOND)
+        self.ruling[product_id] = ""
+        self.ruling_round[product_id] = "0"
         self.status[product_id] = "DISPUTED"
         _log(self, product_id, {
             "type": "CHALLENGE",
@@ -230,100 +455,79 @@ this shape:
         })
 
     @gl.public.write
-    def resolve_challenge(self, product_id: str) -> typing.Any:
-        """Validators weigh original evidence vs counter-evidence. Anyone can trigger."""
+    def resolve_challenge(self, product_id: str, expected_status: str) -> typing.Any:
+        """Round 1 ruling. Anyone can trigger. Bonds move only on appeal/finalize."""
         _require(self, product_id)
+        _expect(self, product_id, expected_status)
         if self.status[product_id] != "DISPUTED":
             raise gl.vm.UserError(
                 f"no open challenge (current: {self.status[product_id]})"
             )
 
-        claimed_origin = self.claimed_origin[product_id]
-        original_url = self.evidence_url[product_id]
-        counter_url = self.counter_evidence[product_id]
-        reason = self.challenge_reason[product_id]
+        ruling, reasoning_text = _run_ruling(
+            self.claimed_origin[product_id],
+            self.evidence_url[product_id],
+            self.counter_evidence[product_id],
+            self.challenge_reason[product_id],
+            False,
+        )
 
-        def leader_fn() -> str:
-            try:
-                counter_text = gl.nondet.web.render(counter_url, mode="text")
-            except Exception as e:
-                return json.dumps({
-                    "ruling": "DISMISSED",
-                    "reasoning": f"Could not retrieve counter-evidence: {e}",
-                })
-            try:
-                original_text = gl.nondet.web.render(original_url, mode="text")
-            except Exception:
-                original_text = "(original evidence page unavailable)"
-
-            prompt = f"""You are the arbiter of a dispute in an on-chain product-authenticity
-registry. A product's origin claim was VERIFIED earlier. A challenger now
-submits counter-evidence. Rule UPHELD only if the counter-evidence explicitly
-and specifically contradicts the claimed origin of THIS product. Vague,
-generic, unrelated, or merely suspicious material must be DISMISSED. Do not
-judge how official or well-known either website is; judge only what the text says.
-
-Claimed origin: {claimed_origin}
-Challenger's reason: {reason}
-
-Original evidence:
----
-{original_text[:3000]}
----
-
-Counter-evidence:
----
-{counter_text[:3000]}
----
-
-Respond with ONLY a JSON object, no preamble, no markdown fences, in exactly
-this shape:
-{{"ruling": "UPHELD" or "DISMISSED", "reasoning": "<one short sentence>"}}"""
-
-            response = gl.nondet.exec_prompt(prompt)
-            try:
-                parsed = _parse_json(response)
-                ruling = parsed.get("ruling")
-                if ruling not in ("UPHELD", "DISMISSED"):
-                    ruling = "DISMISSED"
-                return json.dumps({
-                    "ruling": ruling,
-                    "reasoning": str(parsed.get("reasoning", ""))[:300],
-                })
-            except Exception:
-                return json.dumps({
-                    "ruling": "DISMISSED",
-                    "reasoning": "Non-JSON or malformed model response",
-                })
-
-        def validator_fn(leaders_res) -> bool:
-            if not isinstance(leaders_res, gl.vm.Return):
-                return False
-            try:
-                own_parsed = json.loads(leader_fn())
-                leader_parsed = json.loads(leaders_res.calldata)
-            except Exception:
-                return False
-            return leader_parsed.get("ruling") == own_parsed.get("ruling")
-
-        raw_result = gl.vm.run_nondet_default(leader_fn, validator_fn)
-
-        try:
-            parsed = json.loads(raw_result)
-            ruling = parsed.get("ruling", "DISMISSED")
-            reasoning_text = parsed.get("reasoning", "")
-        except Exception:
-            ruling = "DISMISSED"
-            reasoning_text = "Non-JSON or malformed validator response"
-        if ruling not in ("UPHELD", "DISMISSED"):
-            ruling = "DISMISSED"
-
-        self.status[product_id] = "REVOKED" if ruling == "UPHELD" else "VERIFIED"
+        self.ruling[product_id] = ruling
+        self.ruling_round[product_id] = "1"
         self.reasoning[product_id] = reasoning_text
-        _log(self, product_id, {"type": "RULING", "ruling": ruling, "reasoning": reasoning_text})
+        self.status[product_id] = "RULED"
+        _log(self, product_id, {"type": "RULING", "round": 1, "ruling": ruling, "reasoning": reasoning_text})
         return ruling
 
+    @gl.public.write
+    def appeal(self, product_id: str, expected_status: str) -> typing.Any:
+        """The round-1 loser appeals once (locks APPEAL_BOND). Stricter round 2, then settles."""
+        _require(self, product_id)
+        _expect(self, product_id, expected_status)
+        if self.status[product_id] != "RULED" or self.ruling_round[product_id] != "1":
+            raise gl.vm.UserError("appeal is only possible after a round 1 ruling")
+
+        sender = gl.message.sender_address.as_hex
+        upheld = self.ruling[product_id] == "UPHELD"
+        loser = self.registered_by[product_id] if upheld else self.challenger[product_id]
+        if sender != loser:
+            raise gl.vm.UserError("only the losing side may appeal")
+
+        _lock(self, sender.lower(), APPEAL_BOND)
+        self.appellant[product_id] = sender.lower()
+        self.appeal_bond[product_id] = str(APPEAL_BOND)
+
+        ruling, reasoning_text = _run_ruling(
+            self.claimed_origin[product_id],
+            self.evidence_url[product_id],
+            self.counter_evidence[product_id],
+            self.challenge_reason[product_id],
+            True,
+        )
+
+        self.ruling[product_id] = ruling
+        self.ruling_round[product_id] = "2"
+        self.reasoning[product_id] = reasoning_text
+        _log(self, product_id, {"type": "RULING", "round": 2, "ruling": ruling, "reasoning": reasoning_text, "appellant": sender})
+        _settle(self, product_id)
+        return ruling
+
+    @gl.public.write
+    def finalize(self, product_id: str, expected_status: str) -> typing.Any:
+        """Settle a round 1 ruling that was not appealed. Anyone can call."""
+        _require(self, product_id)
+        _expect(self, product_id, expected_status)
+        if self.status[product_id] != "RULED":
+            raise gl.vm.UserError("nothing to finalize")
+        _settle(self, product_id)
+        return self.status[product_id]
+
     # ------------------------------------------------------------------- views
+
+    @gl.public.view
+    def get_balance(self, address: str) -> typing.Any:
+        a = address.lower()
+        return {"free": _free(self, a), "locked": _locked(self, a)}
 
     @gl.public.view
     def get_product(self, product_id: str) -> typing.Any:
@@ -340,11 +544,21 @@ this shape:
             "challenge_reason": self.challenge_reason[product_id],
             "challenges_used": _challenges_used(self, product_id),
             "max_challenges": MAX_CHALLENGES,
+            "seller_bond": int(self.seller_bond[product_id]),
+            "challenger_bond": int(self.challenger_bond[product_id]),
+            "appeal_bond": int(self.appeal_bond[product_id]),
+            "appellant": self.appellant[product_id],
+            "ruling": self.ruling[product_id],
+            "ruling_round": int(self.ruling_round[product_id]),
+            "bond": BOND,
+            "appeal_bond_required": APPEAL_BOND,
             "history": json.loads(self.history[product_id]),
         }
 
     @gl.public.view
-    def get_products(self, offset: int, limit: int) -> typing.Any:
+    def get_products(self, offset: u256, limit: u256) -> typing.Any:
+        offset = int(offset)
+        limit = int(limit)
         ids = _all_ids(self)
         start = max(0, offset)
         page = ids[start : start + max(0, limit)]
