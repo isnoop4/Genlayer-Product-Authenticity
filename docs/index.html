@@ -1,783 +1,403 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Product Authenticity Registry</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Product Authenticity Registry v2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Newsreader:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
 <style>
   :root {
-    --paper: #EAE3D0; --paper-dim: #DED4B9; --ink: #212A38; --ink-soft: #55605E;
-    --brass: #96702F; --brass-dim: #B9975A; --verified: #3F6B4B; --rejected: #8A3B32;
-    --line: #C7BEA0; --line-strong: #A99A72;
+    --paper:#EAE3D0; --card:#F4EFE0; --ink:#212A38; --muted:#5a6475; --line:#c9c0a6;
+    --brass:#A07A22; --green:#2F6B4F; --rust:#9C3B2A; --grey:#6b7280;
   }
-  * { box-sizing: border-box; }
-  html, body {
-    -webkit-text-size-adjust: 100%; text-size-adjust: 100%; margin: 0; padding: 0;
-    background: var(--paper); color: var(--ink);
-    font-family: "Newsreader", Georgia, serif; font-size: 17px; line-height: 1.5;
-  }
-  .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace; font-size: 0.86em; letter-spacing: -0.01em; }
-  a { color: var(--brass); text-decoration: none; border-bottom: 1px solid var(--brass-dim); }
-  a:hover { color: var(--ink); border-color: var(--ink); }
-  .wrap { max-width: 920px; margin: 0 auto; padding: 48px 24px 96px; }
-  header.masthead {
-    border-bottom: 2px solid var(--ink); padding-bottom: 22px; margin-bottom: 8px;
-    display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px;
-  }
-  header.masthead h1 { font-size: 2.1rem; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em; }
-  header.masthead p { margin: 0; color: var(--ink-soft); font-style: italic; max-width: 46ch; }
-  .chain-line { text-align: right; color: var(--ink-soft); }
-  section.panel { border-bottom: 1px solid var(--line); padding: 30px 0; }
-  section.panel:last-of-type { border-bottom: none; }
-  h2.section-title { font-size: 1.15rem; font-weight: 600; margin: 0 0 4px; }
-  p.section-hint { margin: 0 0 20px; color: var(--ink-soft); font-size: 0.95rem; max-width: 60ch; }
-  .grid-two { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
-  @media (max-width: 720px) { .grid-two { grid-template-columns: 1fr; gap: 32px; } }
-  .field { margin-bottom: 14px; }
-  .field label { display: block; font-size: 0.85rem; color: var(--ink-soft); margin-bottom: 4px; }
-  .field input, .field textarea {
-    width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--line-strong);
-    padding: 7px 2px; font-family: "IBM Plex Mono", monospace; font-size: 0.92rem; color: var(--ink);
-  }
-  .field input:focus, .field textarea:focus { outline: none; border-bottom: 1px solid var(--ink); }
-  button {
-    font-family: "Newsreader", Georgia, serif; font-size: 0.95rem; font-weight: 500; background: none;
-    border: 1px solid var(--ink); color: var(--ink); padding: 9px 18px; cursor: pointer; margin-top: 6px;
-  }
-  button:hover { background: var(--ink); color: var(--paper); }
-  button:disabled { opacity: 0.4; cursor: default; }
-  button:disabled:hover { background: none; color: var(--ink); }
-  button.quiet { border-color: var(--line-strong); color: var(--ink-soft); font-size: 0.82rem; padding: 5px 12px; }
-  button.quiet:hover { background: var(--ink-soft); color: var(--paper); }
-  .signer-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
-  .signer-row .field { flex: 1; min-width: 220px; margin-bottom: 0; }
-  .signer-alt { margin: 22px 0 10px; color: var(--ink-soft); font-size: 0.9rem; font-style: italic; }
-  .status-line { margin-top: 12px; font-size: 0.85rem; color: var(--ink-soft); min-height: 1.2em; word-break: break-word; }
-  .status-line.err { color: var(--rejected); }
-  .status-line.ok { color: var(--verified); }
-  .certificate {
-    position: relative; border: 1px solid var(--line-strong); padding: 22px 24px; margin-top: 20px;
-    background: var(--paper-dim); overflow: hidden;
-  }
-  .certificate .row {
-    display: flex; justify-content: space-between; gap: 16px; padding: 6px 0;
-    border-bottom: 1px dotted var(--line-strong); font-size: 0.88rem;
-  }
-  .certificate .row:last-of-type { border-bottom: none; }
-  .certificate .row .k { color: var(--ink-soft); white-space: nowrap; }
-  .certificate .row .v { text-align: right; word-break: break-word; }
-  .stamp {
-    display: inline-block; margin: 0 0 14px; border: 3px solid var(--ink-soft); border-radius: 6px;
-    padding: 6px 14px; transform: rotate(-3deg); font-family: "IBM Plex Mono", monospace;
-    font-weight: 600; letter-spacing: 0.06em; font-size: 0.9rem; opacity: 0.92;
-  }
-  .stamp.verified { border-color: var(--verified); color: var(--verified); }
-  .stamp.rejected { border-color: var(--rejected); color: var(--rejected); }
-  .stamp.pending { border-color: var(--brass); color: var(--brass); border-style: dashed; }
-  .stamp.disputed { border-color: var(--brass); color: var(--brass); }
-  .stamp.revoked { border-color: var(--rejected); color: var(--rejected); background: rgba(138,59,50,.1); text-decoration: line-through; text-decoration-thickness: 2px; }
-  .actions { border-top: 1px dotted var(--line-strong); margin-top: 14px; padding-top: 14px; font-size: 0.9rem; }
-  .actions.locked { opacity: 0.5; pointer-events: none; }
-  .actions p { margin: 0 0 10px; }
-  .actions .note { color: var(--ink-soft); }
-  .actions .warn { color: var(--brass); }
-  .history { border-top: 1px dotted var(--line-strong); margin-top: 14px; padding-top: 12px; }
-  .history .k { color: var(--ink-soft); font-size: 0.85rem; }
-  ol.timeline { list-style: none; margin: 8px 0 0; padding: 0 0 0 12px; border-left: 2px solid var(--line-strong); }
-  ol.timeline li { padding: 2px 0 8px 10px; font-size: 0.84rem; word-break: break-word; }
-  ol.timeline b { font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 0.78rem; }
-  .ledger { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
-  .ledger th { text-align: left; color: var(--ink-soft); font-weight: 500; border-bottom: 1px solid var(--line-strong); padding: 6px 8px 6px 0; }
-  .ledger td { padding: 7px 8px 7px 0; border-bottom: 1px solid var(--line); vertical-align: top; word-break: break-word; }
-  .ledger tr:last-child td { border-bottom: none; }
-  .empty-row td { color: var(--ink-soft); font-style: italic; font-family: "Newsreader", serif; }
-  .scroll-x { overflow-x: auto; }
-  .spinner {
-    display: inline-block; width: 12px; height: 12px; border: 2px solid var(--line-strong);
-    border-top-color: var(--ink); border-radius: 50%; margin-right: 8px; vertical-align: -1px;
-    animation: spin 0.9s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
-  .examples { margin: 0 0 16px; font-size: 0.85rem; color: var(--ink-soft); }
-  .examples button { margin: 6px 6px 0 0; }
-  footer { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: 0.8rem; }
+  * { box-sizing:border-box; }
+  html { -webkit-text-size-adjust:100%; }
+  body { margin:0; background:var(--paper); color:var(--ink); font:17px/1.5 "Newsreader", Georgia, serif; }
+  .wrap { max-width:760px; margin:0 auto; padding:20px 16px 64px; }
+  h1 { font-size:30px; line-height:1.15; margin:0; letter-spacing:-.01em; }
+  h2 { font-size:13px; font-family:"IBM Plex Mono", ui-monospace, monospace; text-transform:uppercase;
+       letter-spacing:.08em; margin:0 0 10px; color:var(--muted); font-weight:600; }
+  .sub { color:var(--muted); margin:4px 0 0; }
+  .mono { font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:13px; }
+  .panel { background:var(--card); border:1.5px solid var(--ink); padding:14px; margin-top:16px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .row > * { flex:1 1 auto; }
+  label { display:block; font:600 12px "IBM Plex Mono", ui-monospace, monospace; margin:10px 0 4px; color:var(--muted); }
+  input[type=text], input[type=password], input[type=number] {
+    width:100%; padding:10px; font:15px "IBM Plex Mono", ui-monospace, monospace; background:#fff8;
+    border:1.5px solid var(--ink); border-radius:0; color:var(--ink); }
+  input:focus, button:focus-visible { outline:3px solid var(--brass); outline-offset:1px; }
+  button { font:600 14px "IBM Plex Mono", ui-monospace, monospace; padding:10px 14px; cursor:pointer;
+           background:var(--ink); color:var(--paper); border:1.5px solid var(--ink); border-radius:0; flex:0 0 auto; }
+  button.alt { background:transparent; color:var(--ink); }
+  button.danger { background:var(--rust); border-color:var(--rust); }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  .hint { font-size:14px; color:var(--muted); margin:6px 0 0; }
+  .note { border-left:4px solid var(--brass); padding:6px 10px; margin-top:10px; background:#a07a2214; font-size:15px; }
+
+  /* certificate */
+  .cert { position:relative; background:var(--card); border:2px solid var(--ink); margin-top:16px; padding:18px 14px 14px;
+          background-image:repeating-linear-gradient(0deg, transparent 0 27px, #c9c0a655 27px 28px); }
+  .cert h3 { margin:0 90px 2px 0; font-size:24px; word-break:break-word; }
+  .claim { margin:0 0 10px; }
+  .stamp { position:absolute; top:14px; right:12px; transform:rotate(-7deg); padding:4px 10px;
+           border:3px solid currentColor; font:600 14px "IBM Plex Mono", ui-monospace, monospace; letter-spacing:.1em; opacity:.92; }
+  .s-VERIFIED { color:var(--green); } .s-REJECTED, .s-REVOKED { color:var(--rust); }
+  .s-DISPUTED { color:var(--brass); } .s-RULED { color:var(--brass); border-style:dashed; } .s-PENDING { color:var(--grey); }
+  dl { margin:0; display:grid; grid-template-columns:max-content 1fr; gap:4px 12px; }
+  dt { color:var(--muted); font-size:14px; } dd { margin:0; word-break:break-all; }
+  dd a { color:var(--ink); }
+  .bonds { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  .chip { border:1.5px solid var(--ink); padding:2px 8px; font:13px "IBM Plex Mono", ui-monospace, monospace; background:#fff6; }
+  .reason { margin:12px 0 0; font-style:italic; }
+  .timeline { list-style:none; margin:14px 0 0; padding:0; border-top:1px solid var(--line); }
+  .timeline li { padding:6px 0 6px 18px; border-bottom:1px solid var(--line); position:relative; font-size:15px; }
+  .timeline li::before { content:""; position:absolute; left:2px; top:13px; width:8px; height:8px; background:var(--ink); }
+  .timeline .t { font:600 12px "IBM Plex Mono", ui-monospace, monospace; margin-right:6px; }
+  .actions { margin-top:14px; padding-top:12px; border-top:2px solid var(--ink); }
+  .stale { color:var(--rust); font-weight:600; }
+
+  /* registry */
+  .reg { list-style:none; padding:0; margin:0; }
+  .reg li { border-top:1px solid var(--line); }
+  .reg button { width:100%; text-align:left; background:transparent; color:var(--ink); border:0; padding:10px 2px;
+                display:flex; justify-content:space-between; gap:8px; font-weight:400; }
+  .reg .st { font-weight:600; }
+  #log { max-height:240px; overflow:auto; }
+  #log div { padding:4px 0; border-bottom:1px solid var(--line); font:13px "IBM Plex Mono", ui-monospace, monospace; word-break:break-word; }
+  #log .err { color:var(--rust); } #log .ok { color:var(--green); }
+  @media (max-width:480px) { h1 { font-size:26px; } .stamp { font-size:12px; } }
 </style>
 </head>
 <body>
 <div class="wrap">
+  <h1>Product Authenticity Registry <span class="mono">v2</span></h1>
+  <p class="sub">Origin claims are verified by validators, challenged with counter-evidence, backed by bonds, and appealable once.</p>
+  <p class="mono" id="meta"></p>
 
-  <header class="masthead">
-    <div>
-      <h1>Product Authenticity Registry</h1>
-      <p>A provenance ledger for supply-chain origin claims, checked against web evidence by consensus and open to challenge.</p>
+  <section class="panel" aria-label="Account">
+    <h2>Account and bonds</h2>
+    <div class="row">
+      <button id="btnWallet">Connect wallet</button>
+      <button id="btnKey" class="alt">Use private key (test wallet only)</button>
     </div>
-    <div class="chain-line mono">
-      GenLayer Studio Next<br>
-      chain 61997
+    <div id="keyBox" hidden>
+      <label for="pk">Private key (kept in memory only)</label>
+      <input id="pk" type="password" autocomplete="off" placeholder="0x…">
+      <div class="row" style="margin-top:8px"><button id="btnKeyGo">Use this key</button></div>
     </div>
-  </header>
-
-  <section class="panel">
-    <h2 class="section-title">Signer</h2>
-    <p class="section-hint">Entries are written under this account. Connect a browser wallet, or use a test private key. Keys stay in this browser only.</p>
-
-    <div class="signer-row">
-      <button id="connect-btn">Connect wallet</button>
+    <p class="mono" id="acct">Not connected (read-only).</p>
+    <p class="mono" id="bal"></p>
+    <div class="row">
+      <input id="depAmt" type="number" min="1" max="10000" value="500" aria-label="Deposit amount">
+      <button id="btnDep" disabled>Deposit</button>
     </div>
-
-    <p class="signer-alt">No wallet? Use a test key instead.</p>
-
-    <div class="signer-row">
-      <div class="field">
-        <label for="pk-input">Private key</label>
-        <input id="pk-input" type="password" placeholder="0x..." autocomplete="off" />
-      </div>
-      <button id="use-key-btn">Use key</button>
-      <button class="quiet" id="gen-key-btn">Generate test key</button>
-    </div>
-    <div class="status-line" id="signer-status">No account loaded.</div>
+    <p class="hint">Bonds are internal units, not GEN. Deposit only edits this contract's ledger; your wallet balance does not move (network fees still apply). Registering and challenging lock 100 units, appealing locks 200.</p>
   </section>
 
-  <section class="panel">
-    <div class="grid-two">
-      <div>
-        <h2 class="section-title">Register an entry</h2>
-        <p class="section-hint">One entry per product ID. The evidence URL is what the validators will read.</p>
-        <div class="examples">
-          Fill an example:<br>
-          <button class="quiet" data-example="true">Correct claim</button>
-          <button class="quiet" data-example="false">False claim</button>
-          <button class="quiet" data-example="irrelevant">Irrelevant evidence</button>
-        </div>
-
-        <div class="field">
-          <label for="reg-id">Product ID</label>
-          <input id="reg-id" placeholder="LEATHER-BAG-004" />
-        </div>
-        <div class="field">
-          <label for="reg-origin">Claimed origin</label>
-          <textarea id="reg-origin" rows="2" placeholder="Genuine full-grain leather, handcrafted in Florence, Italy"></textarea>
-        </div>
-        <div class="field">
-          <label for="reg-url">Evidence URL</label>
-          <input id="reg-url" placeholder="https://..." />
-        </div>
-        <button id="register-btn">Register entry</button>
-        <div class="status-line" id="register-status"></div>
-      </div>
-
-      <div>
-        <h2 class="section-title">Verify, challenge, look up</h2>
-        <p class="section-hint">Look up an entry to see its record and the actions open to it. Challenge, ruling and evidence updates always apply to the entry shown below, never to the text in the field. Verification and rulings are decided by validator consensus.</p>
-
-        <div class="field">
-          <label for="verify-id">Product ID</label>
-          <input id="verify-id" placeholder="LEATHER-BAG-004" />
-        </div>
-        <button id="verify-btn">Run verification</button>
-        <button class="quiet" id="lookup-btn">Look up entry</button>
-        <div class="status-line" id="verify-status"></div>
-
-        <div class="certificate" id="certificate" style="display:none;">
-          <div class="stamp" id="stamp">PENDING</div>
-          <div class="row"><span class="k">Product ID</span><span class="v mono" id="c-id"></span></div>
-          <div class="row"><span class="k">Claimed origin</span><span class="v" id="c-origin"></span></div>
-          <div class="row"><span class="k">Evidence</span><span class="v mono" id="c-evidence"></span></div>
-          <div class="row"><span class="k">Registered by</span><span class="v mono" id="c-registrant"></span></div>
-          <div class="row"><span class="k">Assessor's note</span><span class="v" id="c-reasoning"></span></div>
-          <div class="row"><span class="k">Challenges used</span><span class="v mono" id="c-challenges"></span></div>
-          <div class="actions" id="actions"></div>
-          <div class="history"><span class="k">History</span><ol class="timeline" id="history"></ol></div>
-        </div>
-      </div>
-    </div>
+  <section class="panel" aria-label="Register">
+    <h2>Register a product</h2>
+    <label for="rId">Product ID</label><input id="rId" type="text" placeholder="e.g. SAK-001">
+    <label for="rOrigin">Claimed origin</label><input id="rOrigin" type="text" placeholder="e.g. Switzerland">
+    <label for="rUrl">Evidence URL</label><input id="rUrl" type="text" placeholder="https://…">
+    <div class="row" style="margin-top:10px"><button id="btnReg" disabled>Register (locks 100)</button></div>
   </section>
 
-  <section class="panel">
-    <h2 class="section-title">Registry</h2>
-    <p class="section-hint">Every entry on the contract. Open one to see its record.</p>
-    <div class="scroll-x">
-      <table class="ledger">
-        <thead><tr><th>Product ID</th><th>Claimed origin</th><th>Status</th><th></th></tr></thead>
-        <tbody id="registry-body"><tr class="empty-row"><td colspan="4">Loading…</td></tr></tbody>
-      </table>
+  <section class="panel" aria-label="Look up">
+    <h2>Look up a product</h2>
+    <div class="row">
+      <input id="lookupId" type="text" placeholder="Product ID" aria-label="Product ID" autocapitalize="off" spellcheck="false">
+      <button id="btnLoad">Load</button>
     </div>
-    <button class="quiet" id="refresh-btn">Refresh list</button>
+    <p class="hint" id="lookupHint"></p>
   </section>
 
-  <section class="panel">
-    <h2 class="section-title">Ledger of transactions</h2>
-    <p class="section-hint">This session's activity, most recent first.</p>
-    <div class="scroll-x">
-      <table class="ledger">
-        <thead>
-          <tr><th>Time</th><th>Action</th><th>Product ID</th><th>Result</th><th>Transaction</th></tr>
-        </thead>
-        <tbody id="ledger-body">
-          <tr class="empty-row"><td colspan="5">No entries yet this session.</td></tr>
-        </tbody>
-      </table>
-    </div>
+  <div id="certHost"></div>
+
+  <section class="panel" aria-label="Registry">
+    <h2>Registry <span id="regCount" class="mono"></span></h2>
+    <ul class="reg" id="reg"><li class="hint">Loading…</li></ul>
+    <div class="row" style="margin-top:8px"><button id="btnReload" class="alt">Refresh list</button></div>
   </section>
 
-  <footer>
-    Contract <span class="mono" id="contract-addr"></span> ·
-    <a id="explorer-link" target="_blank" rel="noopener">view on explorer</a> ·
-    <a id="repo-link" target="_blank" rel="noopener">source on GitHub</a>
-  </footer>
-
+  <section class="panel" aria-label="Activity">
+    <h2>Activity</h2>
+    <div id="log"><div>Ready.</div></div>
+  </section>
 </div>
 
 <script type="module">
-  import { createClient, createAccount } from "https://esm.sh/genlayer-js@2.0.0-rc.1";
-  import { studioDevnet } from "https://esm.sh/genlayer-js@2.0.0-rc.1/chains";
-  import { TransactionStatus } from "https://esm.sh/genlayer-js@2.0.0-rc.1/types";
+import { createClient, createAccount, isSuccessful } from "https://esm.sh/genlayer-js@2.0.0-rc.1";
+import * as chains from "https://esm.sh/genlayer-js@2.0.0-rc.1/chains";
+import { createBinder, ACTION_RULES, BindingError } from "./binding.js";
 
-  const CONTRACT = "0xF03531aE59C9a071a5591eD9764102c5aa377491";
-  const REPO = "https://github.com/isnoop4/Genlayer-Product-Authenticity";
-  const EXPLORER = "https://explorer-studio-next.genlayer.com/";
-  const EXPLORER_TX = EXPLORER + "tx/";
+const CONTRACT = "0x29E2166fAFD8755A75d33F229e014dBb951e8B0c";
+const EXPLORER = "https://explorer-studio-next.genlayer.com/address/" + CONTRACT;
+const chain = chains.studioDevnet || chains.studionet;   // Studio Next = chain id 61997
+const BOND = 100, APPEAL_BOND = 200;
 
-  // Test mode (index.html?test=1) exposes hooks for docs/test-binding.html.
-  // Without the query flag nothing is exposed and the chain is used as normal.
-  const test = new URLSearchParams(location.search).has("test") ? {} : null;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 
-  let account = null;
-  let usingWallet = false;
-  let client = createClient({ chain: studioDevnet });
+// ---------- helpers ----------
+function toObj(x) {                       // Map / BigInt -> plain JSON-ish
+  if (x instanceof Map) { const o = {}; for (const [k, v] of x) o[k] = toObj(v); return o; }
+  if (Array.isArray(x)) return x.map(toObj);
+  if (typeof x === "bigint") return Number(x);
+  if (x && typeof x === "object") { const o = {}; for (const k of Object.keys(x)) o[k] = toObj(x[k]); return o; }
+  return x;
+}
+function log(msg, kind = "") {
+  const d = document.createElement("div");
+  if (kind) d.className = kind;
+  d.textContent = new Date().toLocaleTimeString() + "  " + msg;
+  const box = $("log"); box.prepend(d);
+}
+const short = (a) => (a ? a.slice(0, 6) + "…" + a.slice(-4) : "-");
+const same = (a, b) => !!a && !!b && a.toLowerCase() === b.toLowerCase();
 
-  // ---- Single source of truth for "the product currently displayed" ----
-  // Every challenge / resolve / update-evidence action reads its product ID from
-  // `displayed`, never from the input field or from the last lookup started.
-  // `displayed` is replaced atomically, in the same step that renders the certificate.
-  let displayed = null;      // { productId, data, version }
-  let renderVersion = 0;
-  let reqSeq = 0;            // token for lookups / actions; only the latest may render
-  let pendingLookup = null;  // token of a lookup still loading, else null
-  let busy = false;          // a write is in progress
+$("meta").innerHTML = `Contract <a href="${EXPLORER}" target="_blank" rel="noopener">${short(CONTRACT)}</a> · Studio Next (chain 61997)`;
 
-  const $ = (id) => document.getElementById(id);
-  const signerStatus = $("signer-status");
-  const registerStatus = $("register-status");
-  const verifyStatus = $("verify-status");
-  const ledgerBody = $("ledger-body");
+// ---------- clients ----------
+const readClient = createClient({ chain });
+let writeClient = null;
+let me = null; // address string
 
-  $("contract-addr").textContent = CONTRACT;
-  $("explorer-link").href = EXPLORER + "address/" + CONTRACT;
-  $("repo-link").href = REPO;
+async function read(functionName, args = []) {
+  return toObj(await readClient.readContract({ address: CONTRACT, functionName, args }));
+}
 
-  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const link = (u) => /^https?:\/\//i.test(u || "")
-    ? `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(u)}</a>`
-    : esc(u || "—");
-  const short = (a) => (a ? a.slice(0, 6) + "…" + a.slice(-4) : "");
-  function plain(v) {
-    if (v instanceof Map) return Object.fromEntries([...v].map(([k, x]) => [k, plain(x)]));
-    if (Array.isArray(v)) return v.map(plain);
-    if (typeof v === "bigint") return Number(v);
-    if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, plain(x)]));
-    return v;
-  }
+function setAccount(address, client) {
+  me = address; writeClient = client;
+  $("acct").textContent = "Account " + address;
+  for (const id of ["btnDep", "btnReg"]) $(id).disabled = false;
+  refreshBalance(); renderCert();
+}
 
-  function startWait(el, message) {
-    const started = Date.now();
-    el.className = "status-line";
-    el.innerHTML = '<span class="spinner" aria-hidden="true"></span><span class="wait-msg"></span>';
-    const msgEl = el.querySelector(".wait-msg");
-    const tick = () => {
-      if (!msgEl.isConnected) return;
-      const secs = Math.floor((Date.now() - started) / 1000);
-      msgEl.textContent = `${message} (${secs}s)`;
-    };
-    tick();
-    const timer = setInterval(tick, 1000);
-    return () => clearInterval(timer);
-  }
+$("btnWallet").onclick = async () => {
+  if (!window.ethereum) return log("No browser wallet found. Use the private key option with a test wallet.", "err");
+  try {
+    const [addr] = await window.ethereum.request({ method: "eth_requestAccounts" });
+    const client = createClient({ chain, account: addr, provider: window.ethereum });
+    try { await client.connect("studionet"); } catch (e) { log("connect(): " + (e.shortMessage || e.message)); }
+    setAccount(addr, client);
+    log("Wallet connected " + short(addr), "ok");
+  } catch (e) { log("Wallet: " + (e.shortMessage || e.message), "err"); }
+};
+if (window.ethereum?.on) window.ethereum.on("accountsChanged", () => { me = null; writeClient = null;
+  $("acct").textContent = "Wallet account changed. Press Connect wallet again."; renderCert(); });
 
-  const EXAMPLES = {
-    true: {
-      origin: "Swiss Army knives made by Victorinox in Ibach, Canton of Schwyz, Switzerland",
-      url: "https://en.wikipedia.org/wiki/Victorinox",
-    },
-    false: {
-      origin: "Swiss Army knives handcrafted in Solingen, Germany",
-      url: "https://en.wikipedia.org/wiki/Victorinox",
-    },
-    irrelevant: {
-      origin: "Swiss Army knives made by Victorinox in Ibach, Canton of Schwyz, Switzerland",
-      url: "https://en.wikipedia.org/wiki/Leather",
-    },
-  };
+$("btnKey").onclick = () => { $("keyBox").hidden = !$("keyBox").hidden; };
+$("btnKeyGo").onclick = () => {
+  try {
+    const pk = $("pk").value.trim(); $("pk").value = "";
+    const account = createAccount(pk);
+    setAccount(account.address, createClient({ chain, account }));
+    log("Using test key " + short(account.address), "ok");
+  } catch (e) { log("Key: " + (e.shortMessage || e.message), "err"); }
+};
 
-  document.querySelectorAll("[data-example]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const ex = EXAMPLES[btn.dataset.example];
-      const id = "VICTORINOX-SAK-" + Math.floor(1000 + Math.random() * 9000);
-      $("reg-id").value = id;
-      $("reg-origin").value = ex.origin;
-      $("reg-url").value = ex.url;
-      $("verify-id").value = id;
-      registerStatus.textContent = "Example filled. Tap Register entry, then Run verification.";
-      registerStatus.className = "status-line";
-    });
-  });
+async function refreshBalance() {
+  if (!me) { $("bal").textContent = ""; return; }
+  try {
+    const b = await read("get_balance", [me]);
+    $("bal").textContent = `Bond balance: free ${b.free} · locked ${b.locked}`;
+  } catch (e) { $("bal").textContent = "Balance unavailable"; }
+}
 
-  function setSigner(acc, viaWallet = false) {
-    if (viaWallet && typeof acc === "string") {
-      acc = { address: acc, type: "json-rpc" };
-    }
-    account = acc;
-    usingWallet = viaWallet;
-    client = createClient({ chain: studioDevnet, account: acc.address && viaWallet ? acc.address : acc });
-    const address = acc.address;
-    signerStatus.textContent = viaWallet
-      ? `Signing with wallet ${address}`
-      : `Signing as ${address}`;
-    signerStatus.className = "status-line ok";
-  }
-
-  function walletHint() {
-    return usingWallet
-      ? " If the wallet keeps failing, switch to a test private key below."
-      : "";
-  }
-
-  $("connect-btn").addEventListener("click", async () => {
-    if (!window.ethereum) {
-      signerStatus.textContent = "No browser wallet found. Install one, or use a test private key below.";
-      signerStatus.className = "status-line err";
-      return;
-    }
-    signerStatus.textContent = "Waiting for wallet approval…";
-    signerStatus.className = "status-line";
+// ---------- transactions ----------
+async function sendTx(functionName, args, guard) {
+  if (!writeClient) throw new Error("Connect a wallet or key first.");
+  const write = { address: CONTRACT, functionName, args };
+  let fees;
+  try {
+    const est = await writeClient.estimateTransactionFeesForWrite(write);
+    fees = { distribution: est.distribution, feeValue: est.feeValue };
+  } catch (e1) {
     try {
-      const [address] = await window.ethereum.request({ method: "eth_requestAccounts" });
+      const sim = await writeClient.simulateWriteContract({ ...write, includeReceipt: true });
+      let est;
+      try { est = await writeClient.estimateTransactionFeesFromSimulation({ simulation: sim }); }
+      catch { est = await writeClient.estimateTransactionFeesFromSimulation(sim); }
+      fees = { distribution: est.distribution, feeValue: est.feeValue };
+    } catch (e2) { log("Fee estimate failed, sending without explicit fees: " + (e2.shortMessage || e2.message)); }
+  }
+  if (guard) guard();                         // display must not have changed while estimating
+  log(`Sending ${functionName}(${args.map((a) => typeof a === "bigint" ? a : JSON.stringify(a)).join(", ")})…`);
+  const hash = await writeClient.writeContract({ ...write, ...(fees ? { fees } : {}) });
+  log("Tx " + short(hash) + " submitted, waiting for consensus…");
+  const rcpt = typeof writeClient.waitForDecision === "function"
+    ? await writeClient.waitForDecision({ hash })
+    : await writeClient.waitForTransactionReceipt({ hash, status: "ACCEPTED", retries: 60, interval: 3000 });
+  if (typeof isSuccessful === "function" && !isSuccessful(rcpt)) {
+    throw new Error("Accepted by consensus but the contract rejected it (see explorer for the reason).");
+  }
+  log(functionName + " accepted.", "ok");
+  return rcpt;
+}
 
-      const chainIdHex = "0x" + Number(studioDevnet.id).toString(16);
-      try {
-        await window.ethereum.request({
-          method: "wallet_switchEthereumChain",
-          params: [{ chainId: chainIdHex }],
-        });
-      } catch (switchErr) {
-        await window.ethereum.request({
-          method: "wallet_addEthereumChain",
-          params: [{
-            chainId: chainIdHex,
-            chainName: studioDevnet.name || "GenLayer Studio Next",
-            nativeCurrency: studioDevnet.nativeCurrency || { name: "GEN", symbol: "GEN", decimals: 18 },
-            rpcUrls: studioDevnet.rpcUrls?.default?.http || [],
-          }],
-        });
-      }
+// ---------- binding: displayed product <-> submitted action ----------
+const binder = createBinder((id) => read("get_product", [id]));
 
-      setSigner(address, true);
-    } catch (e) {
-      signerStatus.textContent = "Could not connect wallet: " + (e.message || e);
-      signerStatus.className = "status-line err";
-    }
-  });
+async function loadProduct(id) {
+  $("lookupId").value = id;
+  $("lookupHint").textContent = "Loading…";
+  renderCert();                                // actions lock while pending
+  try {
+    const r = await binder.lookup(id);
+    if (r.dropped) return;                     // a newer lookup owns the display
+    $("lookupHint").textContent = "";
+  } catch (e) {
+    if (binder.pending) return;
+    $("lookupHint").textContent = "Not found or unreadable: " + (e.message || e);
+  }
+  renderCert();
+}
 
-  if (window.ethereum?.on) {
-    window.ethereum.on("accountsChanged", (accounts) => {
-      if (!usingWallet) return;
-      if (accounts.length) {
-        setSigner(accounts[0], true);
-      } else {
-        account = null;
-        usingWallet = false;
-        client = createClient({ chain: studioDevnet });
-        signerStatus.textContent = "Wallet disconnected. Connect again or use a test key.";
-        signerStatus.className = "status-line err";
-      }
+async function doAction(action, build) {
+  const requested = $("lookupId").value.trim();
+  try {
+    await binder.act(action, requested, async (id, status, guard) => {
+      await sendTx(action, build(id, status), guard);
     });
+  } catch (e) {
+    log((e instanceof BindingError ? "Blocked: " : "Failed: ") + (e.shortMessage || e.message), "err");
   }
+  await Promise.all([loadProduct(requested), refreshBalance(), loadList()]);
+}
 
-  $("use-key-btn").addEventListener("click", () => {
-    const raw = $("pk-input").value.trim();
-    if (!raw) {
-      signerStatus.textContent = "Paste a private key first.";
-      signerStatus.className = "status-line err";
-      return;
-    }
-    try {
-      const acc = createAccount(raw.startsWith("0x") ? raw : "0x" + raw);
-      setSigner(acc);
-    } catch (e) {
-      signerStatus.textContent = "That key didn't parse: " + e.message;
-      signerStatus.className = "status-line err";
-    }
-  });
+// ---------- rendering ----------
+function renderHistory(h) {
+  if (!h?.length) return "";
+  const items = h.map((e) => {
+    const t = e.type;
+    let txt = "";
+    if (t === "REGISTER") txt = "Registered by " + short(e.by);
+    else if (t === "VERIFY") txt = `Verified: ${e.verdict}` + (e.reasoning ? `. ${e.reasoning}` : "");
+    else if (t === "EVIDENCE_UPDATED") txt = "Evidence updated";
+    else if (t === "CHALLENGE") txt = `Challenged by ${short(e.by)}: “${e.reason}”`;
+    else if (t === "RULING") txt = `Ruling, round ${e.round}: ${e.ruling}` + (e.reasoning ? `. ${e.reasoning}` : "");
+    else if (t === "SETTLED") txt = `Settled: ${e.final} (winner ${short(e.winner)}, ${e.rounds} round${e.rounds == 1 ? "" : "s"})`;
+    else txt = JSON.stringify(e);
+    return `<li><span class="t">${esc(t)}</span>${esc(txt)}</li>`;
+  }).join("");
+  return `<ul class="timeline">${items}</ul>`;
+}
 
-  $("gen-key-btn").addEventListener("click", () => {
-    const acc = createAccount();
-    $("pk-input").value = acc.privateKey;
-    setSigner(acc);
-    signerStatus.textContent += " — new key, fund it in Studio Next before writing.";
-  });
-
-  function addLedgerRow(action, productId, result, hash) {
-    const emptyRow = ledgerBody.querySelector(".empty-row");
-    if (emptyRow) emptyRow.remove();
-
-    const tr = document.createElement("tr");
-    const time = new Date().toLocaleTimeString();
-    const txLink = hash
-      ? `<a href="${EXPLORER_TX}${esc(hash)}" target="_blank" rel="noopener" class="mono">${esc(hash.slice(0, 10))}…</a>`
-      : "—";
-    tr.innerHTML = `
-      <td class="mono">${time}</td>
-      <td>${esc(action)}</td>
-      <td class="mono">${esc(productId)}</td>
-      <td>${esc(result)}</td>
-      <td>${txLink}</td>
-    `;
-    ledgerBody.prepend(tr);
+function actionsHtml(p) {
+  const s = p.status, seller = same(me, p.registered_by), chal = same(me, p.challenger);
+  const note = (t) => `<p class="hint">${t}</p>`;
+  if (!me) return note("Connect a wallet or key to act on this product.");
+  if (s === "PENDING") return `<button id="aVerify">Verify authenticity</button>` + note("Validators read the evidence page and decide VERIFIED or REJECTED.");
+  if (s === "REJECTED") return seller
+    ? `<label for="aUrl">New evidence URL</label><input id="aUrl" type="text" placeholder="https://…">
+       <div class="row" style="margin-top:8px"><button id="aUpdate">Update evidence (locks ${BOND})</button></div>`
+    : note("Only the registrant can submit new evidence.");
+  if (s === "VERIFIED") return seller
+    ? note("The registrant cannot challenge their own claim.")
+    : `<label for="aCUrl">Counter-evidence URL (must be new for this product)</label><input id="aCUrl" type="text" placeholder="https://…">
+       <label for="aCReason">Reason</label><input id="aCReason" type="text" placeholder="Why the claim is false">
+       <div class="row" style="margin-top:8px"><button id="aChallenge" class="danger">Challenge (locks ${BOND})</button></div>`;
+  if (s === "DISPUTED") return `<button id="aResolve">Resolve challenge</button>` + note("Anyone can trigger the round 1 ruling. Bonds move only after appeal or finalize.");
+  if (s === "RULED") {
+    const loser = p.ruling === "UPHELD" ? p.registered_by : p.challenger;
+    const iAmLoser = same(me, loser);
+    return `<p>Round ${p.ruling_round} ruling: <b>${esc(p.ruling)}</b>. The losing side is ${esc(short(loser))}${iAmLoser ? " (you)" : ""}.</p>
+      <div class="row">
+        <button id="aAppeal" ${iAmLoser ? "" : "disabled"}>Appeal (locks ${APPEAL_BOND})</button>
+        <button id="aFinalize" class="alt">Finalize</button>
+      </div>` + note("Appeal runs one stricter round and settles at once. Finalize accepts the round 1 ruling.");
   }
+  return note("This product is settled.");
+}
 
-  function requireSigner(statusEl) {
-    if (!account) {
-      statusEl.textContent = "Connect a wallet or load a test key first.";
-      statusEl.className = "status-line err";
-      return false;
-    }
-    return true;
-  }
+function renderCert() {
+  const host = $("certHost");
+  const d = binder.displayed;
+  if (binder.pending) { host.innerHTML = `<div class="panel hint">Loading product…</div>`; return; }
+  if (!d) { host.innerHTML = ""; return; }
+  const p = d.product;
+  const typed = $("lookupId").value.trim();
+  const diverged = typed !== d.id;
+  host.innerHTML = `
+  <article class="cert" aria-live="polite">
+    <div class="stamp s-${esc(p.status)}">${esc(p.status)}</div>
+    <h3>${esc(p.product_id)}</h3>
+    <p class="claim">Claimed origin: <b>${esc(p.claimed_origin)}</b></p>
+    <dl>
+      <dt>Evidence</dt><dd><a href="${esc(p.evidence_url)}" target="_blank" rel="noopener noreferrer">${esc(p.evidence_url)}</a></dd>
+      <dt>Registrant</dt><dd>${esc(p.registered_by)}</dd>
+      ${p.challenger ? `<dt>Challenger</dt><dd>${esc(p.challenger)}</dd>
+      <dt>Counter-evidence</dt><dd><a href="${esc(p.counter_evidence)}" target="_blank" rel="noopener noreferrer">${esc(p.counter_evidence)}</a></dd>` : ""}
+      <dt>Challenges</dt><dd>${esc(p.challenges_used)} of ${esc(p.max_challenges)}</dd>
+    </dl>
+    <div class="bonds">
+      <span class="chip">seller bond ${esc(p.seller_bond)}</span>
+      <span class="chip">challenger bond ${esc(p.challenger_bond)}</span>
+      <span class="chip">appeal bond ${esc(p.appeal_bond)}</span>
+      <span class="chip">round ${esc(p.ruling_round)}</span>
+    </div>
+    ${p.reasoning ? `<p class="reason">“${esc(p.reasoning)}”</p>` : ""}
+    ${renderHistory(p.history)}
+    <div class="actions" id="actions">
+      ${binder.stale ? `<p class="stale">Display is out of date. Reload before acting.</p>` : ""}
+      ${diverged ? `<p class="stale">The ID field says “${esc(typed)}” but this card shows “${esc(d.id)}”. Press Load, or restore the ID.</p>` : actionsHtml(p)}
+    </div>
+  </article>`;
+  wireActions();
+  if (binder.stale || diverged) host.querySelectorAll(".actions button").forEach((b) => (b.disabled = true));
+}
 
-  // Locks the in-certificate action buttons while a lookup is loading or a write is running.
-  function syncLock() {
-    const locked = pendingLookup !== null;
-    const actionsEl = $("actions");
-    actionsEl.classList.toggle("locked", locked);
-    actionsEl.querySelectorAll("[data-act]").forEach((b) => (b.disabled = locked || busy));
-  }
+function wireActions() {
+  const on = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
+  on("aVerify",   () => doAction("verify_authenticity", (id) => [id]));
+  on("aUpdate",   () => doAction("update_evidence", (id) => [id, $("aUrl").value.trim()]));
+  on("aChallenge",() => doAction("challenge_product", (id, st) => [id, $("aCUrl").value.trim(), $("aCReason").value.trim(), st]));
+  on("aResolve",  () => doAction("resolve_challenge", (id, st) => [id, st]));
+  on("aAppeal",   () => doAction("appeal", (id, st) => [id, st]));
+  on("aFinalize", () => doAction("finalize", (id, st) => [id, st]));
+}
 
-  const setBusy = (v) => {
-    busy = v;
-    document.querySelectorAll("button").forEach((b) => (b.disabled = v));
-    syncLock();
-  };
+async function loadList() {
+  try {
+    const r = await read("get_products", [0n, 50n]);
+    $("regCount").textContent = `(${r.total})`;
+    const ul = $("reg");
+    if (!r.items?.length) { ul.innerHTML = `<li class="hint">No products yet.</li>`; return; }
+    ul.innerHTML = r.items.slice().reverse().map((it) =>
+      `<li><button data-id="${esc(it.product_id)}"><span>${esc(it.product_id)} <span class="hint">${esc(it.claimed_origin)}</span></span>
+       <span class="st s-${esc(it.status)}">${esc(it.status)}</span></button></li>`).join("");
+    ul.querySelectorAll("button").forEach((b) => (b.onclick = () => loadProduct(b.dataset.id)));
+  } catch (e) { $("reg").innerHTML = `<li class="hint">Could not load the list.</li>`; }
+}
 
-  // `bound` = { productId, version } of the displayed certificate the action was started from.
-  // It is checked before simulating and again right before sending, so the product ID that
-  // goes on-chain can never differ from the product the person is looking at.
-  async function writeTx(functionName, args, bound = null) {
-    const guard = () => {
-      if (!bound) return;
-      if (!displayed
-        || displayed.productId !== bound.productId
-        || displayed.version !== bound.version
-        || args[0] !== bound.productId) {
-        throw new Error("The displayed product changed before sending. Nothing was submitted. Look the entry up again.");
-      }
-    };
-    guard();
+// ---------- wiring ----------
+$("btnLoad").onclick = () => loadProduct($("lookupId").value.trim());
+$("lookupId").addEventListener("keydown", (e) => { if (e.key === "Enter") loadProduct($("lookupId").value.trim()); });
+$("lookupId").addEventListener("input", () => renderCert());
+$("btnReload").onclick = loadList;
 
-    if (test?.writer) return test.writer(functionName, args);
+$("btnDep").onclick = async () => {
+  try {
+    const n = Number($("depAmt").value);
+    if (!Number.isInteger(n) || n < 1 || n > 10000) throw new Error("Amount must be a whole number from 1 to 10000.");
+    await sendTx("deposit", [BigInt(n)]);
+  } catch (e) { log("Deposit failed: " + (e.shortMessage || e.message), "err"); }
+  refreshBalance();
+};
+$("btnReg").onclick = async () => {
+  try {
+    const id = $("rId").value.trim(), origin = $("rOrigin").value.trim(), url = $("rUrl").value.trim();
+    if (!id || !origin || !/^https?:\/\//.test(url)) throw new Error("Fill all fields; the URL must start with http(s)://");
+    await sendTx("register_product", [id, origin, url]);
+    await Promise.all([loadList(), refreshBalance()]);
+    loadProduct(id);
+  } catch (e) { log("Register failed: " + (e.shortMessage || e.message), "err"); }
+};
 
-    const base = { account, address: CONTRACT, functionName, args };
-    const simulation = await client.simulateWriteContract({ ...base, includeReceipt: true });
-    const fees = await client.estimateTransactionFeesFromSimulation({ simulation });
-    guard();
-    const hash = await client.writeContract({
-      ...base,
-      value: 0n,
-      fees: {
-        distribution: fees.distribution,
-        messageAllocations: fees.messageAllocations,
-        feeValue: fees.feeValue,
-      },
-    });
-    await client.waitForTransactionReceipt({
-      hash,
-      status: TransactionStatus.ACCEPTED,
-      retries: 60,
-      interval: 4000,
-    });
-    return hash;
-  }
-
-  const readProduct = async (id) =>
-    test?.reader
-      ? test.reader(id)
-      : plain(await client.readContract({ address: CONTRACT, functionName: "get_product", args: [id] }));
-
-  function eventText(e) {
-    switch (e.type) {
-      case "REGISTER": return `<b>Registered</b> by ${esc(short(e.by))}`;
-      case "VERIFY": return `<b>Verification: ${esc(e.verdict)}</b> ${esc(e.reasoning)}`;
-      case "EVIDENCE_UPDATED": return `<b>Evidence updated</b> ${link(e.evidence_url)}`;
-      case "CHALLENGE": return `<b>Challenged</b> by ${esc(short(e.by))}: ${esc(e.reason)}`;
-      case "RULING": return `<b>Ruling: ${esc(e.ruling)}</b> ${esc(e.reasoning)}`;
-      default: return esc(e.type);
-    }
-  }
-
-  function actionsHtml(d) {
-    switch (d.status) {
-      case "PENDING":
-        return `<p class="note">Waiting for validators to read the evidence. Use Run verification above.</p>`;
-      case "REJECTED":
-        return `<p class="note">Rejected. The registrant can submit better evidence and try again.</p>
-          <div class="field"><label for="new-url">New evidence URL</label><input id="new-url" placeholder="https://..." /></div>
-          <button data-act="update">Submit new evidence</button>`;
-      case "VERIFIED":
-        return `<p><b>Think this claim is wrong?</b> Challenge it with a page that contradicts it.
-          <span class="note">(The registrant cannot challenge their own entry. Up to ${esc(d.max_challenges)} challenges per entry.)</span></p>
-          <div class="field"><label for="ch-url">Counter-evidence URL</label><input id="ch-url" placeholder="https://..." /></div>
-          <div class="field"><label for="ch-reason">Why it contradicts the claim</label><textarea id="ch-reason" rows="2" maxlength="500"></textarea></div>
-          <button data-act="challenge">File challenge</button>`;
-      case "DISPUTED":
-        return `<p class="warn"><b>Open challenge.</b> ${esc(d.challenge_reason)}</p>
-          <p class="mono">Counter-evidence: ${link(d.counter_evidence)}</p>
-          <button data-act="resolve">Ask validators to rule</button>`;
-      case "REVOKED":
-        return `<p class="note">A challenge was upheld. This claim is no longer trusted.</p>`;
-      default:
-        return "";
-    }
-  }
-
-  // Swaps `displayed` and the whole certificate in one synchronous step.
-  function renderCertificate(d, id) {
-    displayed = { productId: id, data: d, version: ++renderVersion };
-    $("actions").dataset.productId = id;
-
-    $("certificate").style.display = "block";
-    $("c-id").textContent = id;
-    $("c-origin").textContent = d.claimed_origin ?? "—";
-    $("c-evidence").innerHTML = link(d.evidence_url);
-    $("c-registrant").textContent = d.registered_by ?? "—";
-    $("c-reasoning").textContent = d.reasoning || "No assessment yet.";
-    $("c-challenges").textContent = `${d.challenges_used ?? 0} of ${d.max_challenges ?? 3}`;
-
-    const status = d.status ?? "PENDING";
-    const stamp = $("stamp");
-    stamp.textContent = status;
-    stamp.className = "stamp " + status.toLowerCase();
-
-    $("actions").innerHTML = actionsHtml(d);
-    $("history").innerHTML = (d.history || []).map((e) => `<li>${eventText(e)}</li>`).join("");
-    syncLock();
-  }
-
-  function clearDisplayed() {
-    displayed = null;
-    delete $("actions").dataset.productId;
-    $("actions").innerHTML = "";
-    $("certificate").style.display = "none";
-    syncLock();
-  }
-
-  async function lookup(id) {
-    const my = ++reqSeq;          // newest lookup wins
-    pendingLookup = my;
-    syncLock();                   // old certificate stays visible but its actions are locked
-    verifyStatus.textContent = "Looking up…";
-    verifyStatus.className = "status-line";
-    try {
-      const data = await readProduct(id);
-      if (my !== reqSeq) return;  // stale or out-of-order response: drop it
-      pendingLookup = null;
-      renderCertificate(data, id);
-      $("verify-id").value = id;
-      verifyStatus.textContent = "";
-    } catch (e) {
-      if (my !== reqSeq) return;
-      pendingLookup = null;
-      clearDisplayed();
-      verifyStatus.textContent = "No record found, or: " + e.message;
-      verifyStatus.className = "status-line err";
-    }
-  }
-
-  // Shared runner for every state-changing action.
-  // `id` is passed in explicitly by the caller and never re-read from shared state.
-  async function act({ statusEl, wait, verb, label, id, call, check }) {
-    if (!requireSigner(statusEl)) return;
-    const my = ++reqSeq;          // invalidates any lookup still in flight
-    if (pendingLookup !== null) {
-      pendingLookup = null;
-      if (statusEl !== verifyStatus) verifyStatus.textContent = "";
-    }
-    const stopWait = startWait(statusEl, usingWallet ? "Confirm in your wallet, then " + wait : wait);
-    setBusy(true);
-    try {
-      const hash = await call();
-      const data = await readProduct(id);
-      if (my === reqSeq) {
-        renderCertificate(data, id);
-        $("verify-id").value = id;
-      }
-      const r = check(data);
-      statusEl.textContent = r.text;
-      statusEl.className = "status-line" + (r.ok ? " ok" : "");
-      addLedgerRow(label, id, data.status, hash);
-      loadRegistry();
-    } catch (e) {
-      statusEl.textContent = `Could not ${verb}: ` + e.message + walletHint();
-      statusEl.className = "status-line err";
-    } finally {
-      stopWait();
-      setBusy(false);
-    }
-  }
-
-  async function loadRegistry() {
-    if (test) return;
-    const body = $("registry-body");
-    try {
-      const res = plain(await client.readContract({
-        address: CONTRACT, functionName: "get_products", args: [0n, 50n],
-      }));
-      const items = res.items || [];
-      if (!items.length) {
-        body.innerHTML = '<tr class="empty-row"><td colspan="4">No entries yet. Register the first one above.</td></tr>';
-        return;
-      }
-      body.innerHTML = items.map((i) => `<tr>
-        <td class="mono">${esc(i.product_id)}</td>
-        <td>${esc(i.claimed_origin)}</td>
-        <td class="mono">${esc(i.status)}</td>
-        <td><button class="quiet" data-open="${esc(i.product_id)}">Open</button></td></tr>`).join("");
-    } catch (e) {
-      body.innerHTML = `<tr class="empty-row"><td colspan="4">Could not load the registry: ${esc(e.message)}</td></tr>`;
-    }
-  }
-
-  $("register-btn").addEventListener("click", () => {
-    const productId = $("reg-id").value.trim();
-    const claimedOrigin = $("reg-origin").value.trim();
-    const evidenceUrl = $("reg-url").value.trim();
-    if (!productId || !claimedOrigin || !evidenceUrl) {
-      registerStatus.textContent = "All three fields are required.";
-      registerStatus.className = "status-line err";
-      return;
-    }
-    act({
-      statusEl: registerStatus, wait: "validators finalize", verb: "register", label: "Register", id: productId,
-      call: () => writeTx("register_product", [productId, claimedOrigin, evidenceUrl]),
-      check: () => ({ text: `Entry recorded for ${productId}.`, ok: true }),
-    });
-  });
-
-  $("lookup-btn").addEventListener("click", () => {
-    const id = $("verify-id").value.trim();
-    if (!id) {
-      verifyStatus.textContent = "Enter a product ID first.";
-      verifyStatus.className = "status-line err";
-      return;
-    }
-    lookup(id);
-  });
-
-  $("verify-btn").addEventListener("click", () => {
-    const id = $("verify-id").value.trim();
-    if (!id) {
-      verifyStatus.textContent = "Enter a product ID first.";
-      verifyStatus.className = "status-line err";
-      return;
-    }
-    act({
-      statusEl: verifyStatus, wait: "validators read the evidence", verb: "verify", label: "Verify", id,
-      call: () => writeTx("verify_authenticity", [id]),
-      check: (d) => d.status === "PENDING"
-        ? { text: "Validators did not reach consensus, so the status is still PENDING. Run verification again." }
-        : { text: `Verdict: ${d.status}.`, ok: d.status === "VERIFIED" },
-    });
-  });
-
-  // The target of challenge / resolve / update-evidence: the certificate on screen, or null
-  // when it cannot be trusted right now (a lookup is loading, or DOM and state disagree).
-  function boundTarget() {
-    if (pendingLookup !== null) {
-      verifyStatus.textContent = "Another lookup is still loading. Wait for it to finish, then act on the entry shown.";
-      verifyStatus.className = "status-line err";
-      return null;
-    }
-    if (!displayed || $("actions").dataset.productId !== displayed.productId) {
-      verifyStatus.textContent = "No entry is displayed. Look one up first.";
-      verifyStatus.className = "status-line err";
-      return null;
-    }
-    return { productId: displayed.productId, version: displayed.version };
-  }
-
-  function handleAction(kind) {
-    const bound = boundTarget();
-    if (!bound) return;
-    const id = bound.productId;   // snapshot: this is the only ID these actions ever use
-    const data = displayed.data;
-
-    if (kind === "update") {
-      const url = $("new-url")?.value.trim();
-      if (!url) { verifyStatus.textContent = "Enter the new evidence URL."; verifyStatus.className = "status-line err"; return; }
-      act({
-        statusEl: verifyStatus, wait: "validators finalize", verb: "update evidence", label: "Update evidence", id,
-        call: () => writeTx("update_evidence", [id, url], bound),
-        check: () => ({ text: "Evidence updated. Run verification again.", ok: true }),
-      });
-    }
-    if (kind === "challenge") {
-      const url = $("ch-url")?.value.trim();
-      const reason = $("ch-reason")?.value.trim();
-      if (!url || !reason) { verifyStatus.textContent = "Add a counter-evidence URL and a reason."; verifyStatus.className = "status-line err"; return; }
-      const me = (account?.address || "").toLowerCase();
-      if (me && data?.registered_by && me === data.registered_by.toLowerCase()) {
-        verifyStatus.textContent = "This wallet registered the entry, and the contract does not let a registrant challenge their own product. Switch to a different wallet.";
-        verifyStatus.className = "status-line err";
-        return;
-      }
-      act({
-        statusEl: verifyStatus, wait: "validators finalize", verb: "file the challenge", label: "Challenge", id,
-        call: () => writeTx("challenge_product", [id, url, reason], bound),
-        check: () => ({ text: "Challenge filed. Ask validators to rule below.", ok: true }),
-      });
-    }
-    if (kind === "resolve") {
-      act({
-        statusEl: verifyStatus, wait: "validators weigh both pieces of evidence", verb: "resolve the challenge", label: "Resolve", id,
-        call: () => writeTx("resolve_challenge", [id], bound),
-        check: (d) => d.status === "REVOKED"
-          ? { text: "Challenge upheld: the claim is revoked." }
-          : d.status === "VERIFIED"
-            ? { text: "Challenge dismissed: the claim stands.", ok: true }
-            : { text: "Validators did not reach consensus, so the entry is still DISPUTED. Try again." },
-      });
-    }
-  }
-
-  // Buttons that appear inside the certificate depending on status.
-  $("actions").addEventListener("click", (ev) => {
-    const btn = ev.target.closest?.("[data-act]");
-    if (!btn || btn.disabled) return;
-    handleAction(btn.dataset.act);
-  });
-
-  $("registry-body").addEventListener("click", (ev) => {
-    const id = ev.target.dataset?.open;
-    if (id) lookup(id);
-  });
-  $("refresh-btn").addEventListener("click", loadRegistry);
-
-  if (test) {
-    Object.assign(test, {
-      setReader: (fn) => { test.reader = fn; },
-      setWriter: (fn) => { test.writer = fn; },
-      setSigner: (address) => { account = { address }; usingWallet = false; },
-      lookup,
-      handleAction,
-      isBusy: () => busy,
-      getDisplayed: () => (displayed ? { productId: displayed.productId, version: displayed.version } : null),
-    });
-    window.__PA_TEST__ = test;
-  }
-
-  loadRegistry();
+loadList();
 </script>
 </body>
 </html>
