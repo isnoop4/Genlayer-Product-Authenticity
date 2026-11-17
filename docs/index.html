@@ -135,7 +135,8 @@ import { createBinder, ACTION_RULES, BindingError } from "./binding.js";
 
 const CONTRACT = "0x29E2166fAFD8755A75d33F229e014dBb951e8B0c";
 const EXPLORER = "https://explorer-studio-next.genlayer.com/address/" + CONTRACT;
-const chain = chains.studioDevnet || chains.studionet;   // Studio Next = chain id 61997
+// Studio Next = chain id 61997. Pick it by id so a renamed export cannot send us to another network.
+const chain = Object.values(chains).find((c) => c && Number(c.id) === 61997) || chains.studioDevnet || chains.studionet;
 const BOND = 100, APPEAL_BOND = 200;
 
 const $ = (id) => document.getElementById(id);
@@ -162,6 +163,7 @@ $("meta").innerHTML = `Contract <a href="${EXPLORER}" target="_blank" rel="noope
 
 // ---------- clients ----------
 const readClient = createClient({ chain });
+log(`Chain ${chain?.name ?? "?"} (id ${chain?.id ?? "?"}). SDK chains: ${Object.keys(chains).join(", ")}`);
 let writeClient = null;
 let me = null; // address string
 
@@ -204,7 +206,10 @@ async function refreshBalance() {
   try {
     const b = await read("get_balance", [me]);
     $("bal").textContent = `Bond balance: free ${b.free} · locked ${b.locked}`;
-  } catch (e) { $("bal").textContent = "Balance unavailable"; }
+  } catch (e) {
+    $("bal").textContent = "Balance unavailable";
+    log("get_balance failed: " + (e.shortMessage || e.message), "err");
+  }
 }
 
 // ---------- transactions ----------
@@ -370,7 +375,10 @@ async function loadList() {
       `<li><button data-id="${esc(it.product_id)}"><span>${esc(it.product_id)} <span class="hint">${esc(it.claimed_origin)}</span></span>
        <span class="st s-${esc(it.status)}">${esc(it.status)}</span></button></li>`).join("");
     ul.querySelectorAll("button").forEach((b) => (b.onclick = () => loadProduct(b.dataset.id)));
-  } catch (e) { $("reg").innerHTML = `<li class="hint">Could not load the list.</li>`; }
+  } catch (e) {
+    $("reg").innerHTML = `<li class="hint">Could not load the list.</li>`;
+    log("get_products failed: " + (e.shortMessage || e.message), "err");
+  }
 }
 
 // ---------- wiring ----------
