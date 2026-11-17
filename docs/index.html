@@ -1,194 +1,435 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>GenLayer Product Registry</title>
-  <style>
-    body { font: 16px/1.5 system-ui, sans-serif; margin: 20px; }
-    hr   { margin: 20px 0; border: 0; border-top: 1px solid #ddd; }
-    .hint { color: #777; }
-    .st   { font-weight: bold; }
-    .st.s-active   { color: green; }
-    .st.s-inactive { color: gray; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Product Authenticity Registry v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Newsreader:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper:#EAE3D0; --card:#F4EFE0; --ink:#212A38; --muted:#5a6475; --line:#c9c0a6;
+    --brass:#A07A22; --green:#2F6B4F; --rust:#9C3B2A; --grey:#6b7280;
+  }
+  * { box-sizing:border-box; }
+  html { -webkit-text-size-adjust:100%; }
+  body { margin:0; background:var(--paper); color:var(--ink); font:17px/1.5 "Newsreader", Georgia, serif; }
+  .wrap { max-width:760px; margin:0 auto; padding:20px 16px 64px; }
+  h1 { font-size:30px; line-height:1.15; margin:0; letter-spacing:-.01em; }
+  h2 { font-size:13px; font-family:"IBM Plex Mono", ui-monospace, monospace; text-transform:uppercase;
+       letter-spacing:.08em; margin:0 0 10px; color:var(--muted); font-weight:600; }
+  .sub { color:var(--muted); margin:4px 0 0; }
+  .mono { font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:13px; }
+  .panel { background:var(--card); border:1.5px solid var(--ink); padding:14px; margin-top:16px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .row > * { flex:1 1 auto; }
+  label { display:block; font:600 12px "IBM Plex Mono", ui-monospace, monospace; margin:10px 0 4px; color:var(--muted); }
+  input[type=text], input[type=password], input[type=number] {
+    width:100%; padding:10px; font:15px "IBM Plex Mono", ui-monospace, monospace; background:#fff8;
+    border:1.5px solid var(--ink); border-radius:0; color:var(--ink); }
+  input:focus, button:focus-visible { outline:3px solid var(--brass); outline-offset:1px; }
+  button { font:600 14px "IBM Plex Mono", ui-monospace, monospace; padding:10px 14px; cursor:pointer;
+           background:var(--ink); color:var(--paper); border:1.5px solid var(--ink); border-radius:0; flex:0 0 auto; }
+  button.alt { background:transparent; color:var(--ink); }
+  button.danger { background:var(--rust); border-color:var(--rust); }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  .hint { font-size:14px; color:var(--muted); margin:6px 0 0; }
+  .note { border-left:4px solid var(--brass); padding:6px 10px; margin-top:10px; background:#a07a2214; font-size:15px; }
+
+  /* certificate */
+  .cert { position:relative; background:var(--card); border:2px solid var(--ink); margin-top:16px; padding:18px 14px 14px;
+          background-image:repeating-linear-gradient(0deg, transparent 0 27px, #c9c0a655 27px 28px); }
+  .cert h3 { margin:0 90px 2px 0; font-size:24px; word-break:break-word; }
+  .claim { margin:0 0 10px; }
+  .stamp { position:absolute; top:14px; right:12px; transform:rotate(-7deg); padding:4px 10px;
+           border:3px solid currentColor; font:600 14px "IBM Plex Mono", ui-monospace, monospace; letter-spacing:.1em; opacity:.92; }
+  .s-VERIFIED { color:var(--green); } .s-REJECTED, .s-REVOKED { color:var(--rust); }
+  .s-DISPUTED { color:var(--brass); } .s-RULED { color:var(--brass); border-style:dashed; } .s-PENDING { color:var(--grey); }
+  dl { margin:0; display:grid; grid-template-columns:max-content 1fr; gap:4px 12px; }
+  dt { color:var(--muted); font-size:14px; } dd { margin:0; word-break:break-all; }
+  dd a { color:var(--ink); }
+  .bonds { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  .chip { border:1.5px solid var(--ink); padding:2px 8px; font:13px "IBM Plex Mono", ui-monospace, monospace; background:#fff6; }
+  .reason { margin:12px 0 0; font-style:italic; }
+  .timeline { list-style:none; margin:14px 0 0; padding:0; border-top:1px solid var(--line); }
+  .timeline li { padding:6px 0 6px 18px; border-bottom:1px solid var(--line); position:relative; font-size:15px; }
+  .timeline li::before { content:""; position:absolute; left:2px; top:13px; width:8px; height:8px; background:var(--ink); }
+  .timeline .t { font:600 12px "IBM Plex Mono", ui-monospace, monospace; margin-right:6px; }
+  .actions { margin-top:14px; padding-top:12px; border-top:2px solid var(--ink); }
+  .stale { color:var(--rust); font-weight:600; }
+
+  /* registry */
+  .reg { list-style:none; padding:0; margin:0; }
+  .reg li { border-top:1px solid var(--line); }
+  .reg button { width:100%; text-align:left; background:transparent; color:var(--ink); border:0; padding:10px 2px;
+                display:flex; justify-content:space-between; gap:8px; font-weight:400; }
+  .reg .st { font-weight:600; }
+  #log { max-height:240px; overflow:auto; }
+  #log div { padding:4px 0; border-bottom:1px solid var(--line); font:13px "IBM Plex Mono", ui-monospace, monospace; word-break:break-word; }
+  #log .err { color:var(--rust); } #log .ok { color:var(--green); }
+  @media (max-width:480px) { h1 { font-size:26px; } .stamp { font-size:12px; } }
+</style>
 </head>
 <body>
-  <h1>Product Registry</h1>
+<div class="wrap">
+  <h1>Product Authenticity Registry <span class="mono">v2</span></h1>
+  <p class="sub">Origin claims are verified by validators, challenged with counter-evidence, backed by bonds, and appealable once.</p>
+  <p class="mono" id="meta"></p>
 
-  <div>
-    Total: <span id="regCount">0</span>
-    <button id="btnReload">Refresh List</button>
-  </div>
+  <section class="panel" aria-label="Account">
+    <h2>Account and bonds</h2>
+    <div class="row">
+      <button id="btnWallet">Connect wallet</button>
+      <button id="btnKey" class="alt">Use private key (test wallet only)</button>
+    </div>
+    <div id="keyBox" hidden>
+      <label for="pk">Private key (kept in memory only)</label>
+      <input id="pk" type="password" autocomplete="off" placeholder="0x…">
+      <div class="row" style="margin-top:8px"><button id="btnKeyGo">Use this key</button></div>
+    </div>
+    <p class="mono" id="acct">Not connected (read-only).</p>
+    <p class="mono" id="bal"></p>
+    <div class="row">
+      <input id="depAmt" type="number" min="1" max="10000" value="500" aria-label="Deposit amount">
+      <button id="btnDep" disabled>Deposit</button>
+    </div>
+    <p class="hint">Bonds are internal units, not GEN. Deposit only edits this contract's ledger; your wallet balance does not move (network fees still apply). Registering and challenging lock 100 units, appealing locks 200.</p>
+  </section>
 
-  <ul id="reg"></ul>
+  <section class="panel" aria-label="Register">
+    <h2>Register a product</h2>
+    <label for="rId">Product ID</label><input id="rId" type="text" placeholder="e.g. SAK-001">
+    <label for="rOrigin">Claimed origin</label><input id="rOrigin" type="text" placeholder="e.g. Switzerland">
+    <label for="rUrl">Evidence URL</label><input id="rUrl" type="text" placeholder="https://…">
+    <div class="row" style="margin-top:10px"><button id="btnReg" disabled>Register (locks 100)</button></div>
+  </section>
 
-  <hr>
+  <section class="panel" aria-label="Look up">
+    <h2>Look up a product</h2>
+    <div class="row">
+      <input id="lookupId" type="text" placeholder="Product ID" aria-label="Product ID" autocapitalize="off" spellcheck="false">
+      <button id="btnLoad">Load</button>
+    </div>
+    <p class="hint" id="lookupHint"></p>
+  </section>
 
-  <h2>Lookup product</h2>
-  <input id="lookupId" placeholder="product id">
-  <button id="btnLoad">Load</button>
+  <div id="certHost"></div>
 
-  <hr>
+  <section class="panel" aria-label="Registry">
+    <h2>Registry <span id="regCount" class="mono"></span></h2>
+    <ul class="reg" id="reg"><li class="hint">Loading…</li></ul>
+    <div class="row" style="margin-top:8px"><button id="btnReload" class="alt">Refresh list</button></div>
+  </section>
 
-  <h2>Deposit GEN</h2>
-  <input id="depAmt" type="number" placeholder="amount (1-10000)">
-  <button id="btnDep">Deposit</button>
+  <section class="panel" aria-label="Activity">
+    <h2>Activity</h2>
+    <div id="log"><div>Ready.</div></div>
+  </section>
+</div>
 
-  <hr>
+<script type="module">
+import { createClient, createAccount, isSuccessful } from "https://esm.sh/genlayer-js@2.0.0-rc.1";
+import * as chains from "https://esm.sh/genlayer-js@2.0.0-rc.1/chains";
+import { createBinder, ACTION_RULES, BindingError } from "./binding.js";
 
-  <h2>Register product</h2>
-  <input id="rId"     placeholder="product id">
-  <input id="rOrigin" placeholder="origin">
-  <input id="rUrl"    placeholder="evidence URL">
-  <button id="btnReg">Register</button>
+const CONTRACT = "0x29E2166fAFD8755A75d33F229e014dBb951e8B0c";
+const EXPLORER = "https://explorer-studio-next.genlayer.com/address/" + CONTRACT;
+// Studio Next = chain id 61997. Pick it by id so a renamed export cannot send us to another network.
+const chain = Object.values(chains).find((c) => c && Number(c.id) === 61997) || chains.studioDevnet || chains.studionet;
+const BOND = 100, APPEAL_BOND = 200;
 
-  <script type="module">
-    /* -------------------------------------------------
-       Helper utilities
-    ------------------------------------------------- */
-    const $   = (id) => document.getElementById(id);
-    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;",
-    })[c]);
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 
-    // Placeholder SDK functions / globals - provided by the GenLayer SDK
-    // in the real page:
-    //   read(method, params?)  -> Promise<object>
-    //   sendTx(method, params) -> Promise<txHash>
-    //   refreshBalance()       -> updates UI
-    //   loadProduct(id)        -> fetch & display a single product
-    //   renderCert()           -> optional UI helper
-    //   log(message, type?)    -> console log + optional UI output
-    //   safeHttpUrl(str)       -> simple URL validator
-    //   studioDevnet           -> info about the selected chain
+// ---------- helpers ----------
+function toObj(x) {                       // Map / BigInt -> plain JSON-ish
+  if (x instanceof Map) { const o = {}; for (const [k, v] of x) o[k] = toObj(v); return o; }
+  if (Array.isArray(x)) return x.map(toObj);
+  if (typeof x === "bigint") return Number(x);
+  if (x && typeof x === "object") { const o = {}; for (const k of Object.keys(x)) o[k] = toObj(x[k]); return o; }
+  return x;
+}
+function log(msg, kind = "") {
+  const d = document.createElement("div");
+  if (kind) d.className = kind;
+  d.textContent = new Date().toLocaleTimeString() + "  " + msg;
+  const box = $("log"); box.prepend(d);
+}
+const short = (a) => (a ? a.slice(0, 6) + "…" + a.slice(-4) : "-");
+const same = (a, b) => !!a && !!b && a.toLowerCase() === b.toLowerCase();
 
-    /* -------------------------------------------------
-       Core logic
-    ------------------------------------------------- */
-    async function loadList() {
-      try {
-        // Adjust the call to match your contract signature.
-        // If get_products takes (offset, limit):
-        //   const result = await read("get_products", [0n, 50n]);
-        // If it takes no parameters:
-        const result = await read("get_products");
+$("meta").innerHTML = `Contract <a href="${EXPLORER}" target="_blank" rel="noopener">${short(CONTRACT)}</a> · Studio Next (chain 61997)`;
 
-        const total = Number(result.total ?? 0);
-        const items = Array.isArray(result.items) ? result.items : [];
+// ---------- clients ----------
+// A throwaway account only supplies a "from" address for read calls; it never signs or holds anything.
+const readAccount = createAccount();
+const readClient = createClient({ chain, account: readAccount });
+log(`Chain ${chain?.name ?? "?"} (id ${chain?.id ?? "?"}). SDK chains: ${Object.keys(chains).join(", ")}`);
+let writeClient = null;
+let me = null; // address string
 
-        $("regCount").textContent = `${total}`;
-
-        const list = $("reg");
-        if (!items.length) {
-          list.innerHTML = `<li class="hint">No products yet.</li>`;
-          return;
-        }
-
-        // NOTE: field names below (productid, claimedorigin) match the
-        // original code. Rename to product_id / claimed_origin if that is
-        // what your contract returns.
-        list.innerHTML = items
-          .slice()
-          .reverse()
-          .map((item) => `
-            <li>
-              <button type="button" data-id="${esc(item.productid)}">
-                <span>
-                  ${esc(item.productid)}
-                  <span class="hint">${esc(item.claimedorigin)}</span>
-                </span>
-                <span class="st s-${esc(item.status)}">${esc(item.status)}</span>
-              </button>
-            </li>
-          `)
-          .join("");
-
-        list.querySelectorAll("button[data-id]").forEach((button) => {
-          button.onclick = () => loadProduct(button.dataset.id);
-        });
-      } catch (error) {
-        $("reg").innerHTML =
-          `<li class="hint">Could not load the list. Check Activity for the RPC error.</li>`;
-        log(
-          "getproducts failed: " +
-          (error?.shortMessage || error?.message || String(error)),
-          "err"
-        );
-      }
+// Studio Next may reject a read as "Missing or invalid parameters" depending on SDK/runtime version,
+// so try a few call shapes and remember the first one that works.
+const READ_VARIANTS = [
+  (b) => b,
+  (b) => ({ ...b, account: readAccount }),
+  (b) => ({ ...b, transactionHashVariant: "latest-nonfinal" }),
+  (b) => ({ ...b, account: readAccount, transactionHashVariant: "latest-nonfinal" }),
+  (b) => ({ ...b, account: readAccount, leaderOnly: true }),
+];
+let readMode = 0;
+async function read(functionName, args = []) {
+  const base = { address: CONTRACT, functionName, args };
+  let lastErr;
+  for (let i = readMode; i < READ_VARIANTS.length; i++) {
+    try {
+      const out = toObj(await readClient.readContract(READ_VARIANTS[i](base)));
+      if (i !== readMode) { readMode = i; log("Read call shape #" + i + " works."); }
+      return out;
+    } catch (e) {
+      lastErr = e;
+      if (!/invalid param|missing/i.test((e.shortMessage || "") + " " + (e.message || ""))) throw e;
     }
+  }
+  throw lastErr;
+}
 
-    /* -------------------------------------------------
-       UI event bindings
-    ------------------------------------------------- */
+function setAccount(address, client) {
+  me = address; writeClient = client;
+  $("acct").textContent = "Account " + address;
+  for (const id of ["btnDep", "btnReg"]) $(id).disabled = false;
+  refreshBalance(); renderCert();
+}
 
-    // Load a single product by id
-    $("btnLoad").onclick = () => loadProduct($("lookupId").value.trim());
+$("btnWallet").onclick = async () => {
+  if (!window.ethereum) return log("No browser wallet found. Use the private key option with a test wallet.", "err");
+  try {
+    const [addr] = await window.ethereum.request({ method: "eth_requestAccounts" });
+    const client = createClient({ chain, account: addr, provider: window.ethereum });
+    try { await client.connect("studionet"); } catch (e) { log("connect(): " + (e.shortMessage || e.message)); }
+    setAccount(addr, client);
+    log("Wallet connected " + short(addr), "ok");
+  } catch (e) { log("Wallet: " + (e.shortMessage || e.message), "err"); }
+};
+if (window.ethereum?.on) window.ethereum.on("accountsChanged", () => { me = null; writeClient = null;
+  $("acct").textContent = "Wallet account changed. Press Connect wallet again."; renderCert(); });
 
-    // Press Enter in the lookup field
-    $("lookupId").addEventListener("keydown", (event) => {
-      if (event.key === "Enter") loadProduct($("lookupId").value.trim());
+$("btnKey").onclick = () => { $("keyBox").hidden = !$("keyBox").hidden; };
+$("btnKeyGo").onclick = () => {
+  try {
+    const pk = $("pk").value.trim(); $("pk").value = "";
+    const account = createAccount(pk);
+    setAccount(account.address, createClient({ chain, account }));
+    log("Using test key " + short(account.address), "ok");
+  } catch (e) { log("Key: " + (e.shortMessage || e.message), "err"); }
+};
+
+async function refreshBalance() {
+  if (!me) { $("bal").textContent = ""; return; }
+  try {
+    const b = await read("get_balance", [me]);
+    $("bal").textContent = `Bond balance: free ${b.free} · locked ${b.locked}`;
+  } catch (e) {
+    $("bal").textContent = "Balance unavailable";
+    log("get_balance failed: " + (e.shortMessage || e.message), "err");
+  }
+}
+
+// ---------- transactions ----------
+async function sendTx(functionName, args, guard) {
+  if (!writeClient) throw new Error("Connect a wallet or key first.");
+  const write = { address: CONTRACT, functionName, args };
+  let fees;
+  try {
+    const est = await writeClient.estimateTransactionFeesForWrite(write);
+    fees = { distribution: est.distribution, feeValue: est.feeValue };
+  } catch (e1) {
+    try {
+      const sim = await writeClient.simulateWriteContract({ ...write, includeReceipt: true });
+      let est;
+      try { est = await writeClient.estimateTransactionFeesFromSimulation({ simulation: sim }); }
+      catch { est = await writeClient.estimateTransactionFeesFromSimulation(sim); }
+      fees = { distribution: est.distribution, feeValue: est.feeValue };
+    } catch (e2) { log("Fee estimate failed, sending without explicit fees: " + (e2.shortMessage || e2.message)); }
+  }
+  if (guard) guard();                         // display must not have changed while estimating
+  log(`Sending ${functionName}(${args.map((a) => typeof a === "bigint" ? a : JSON.stringify(a)).join(", ")})…`);
+  const hash = await writeClient.writeContract({ ...write, ...(fees ? { fees } : {}) });
+  log("Tx " + short(hash) + " submitted, waiting for consensus…");
+  const rcpt = typeof writeClient.waitForDecision === "function"
+    ? await writeClient.waitForDecision({ hash })
+    : await writeClient.waitForTransactionReceipt({ hash, status: "ACCEPTED", retries: 60, interval: 3000 });
+  if (typeof isSuccessful === "function" && !isSuccessful(rcpt)) {
+    throw new Error("Accepted by consensus but the contract rejected it (see explorer for the reason).");
+  }
+  log(functionName + " accepted.", "ok");
+  return rcpt;
+}
+
+// ---------- binding: displayed product <-> submitted action ----------
+const binder = createBinder((id) => read("get_product", [id]));
+
+async function loadProduct(id) {
+  $("lookupId").value = id;
+  $("lookupHint").textContent = "Loading…";
+  renderCert();                                // actions lock while pending
+  try {
+    const r = await binder.lookup(id);
+    if (r.dropped) return;                     // a newer lookup owns the display
+    $("lookupHint").textContent = "";
+  } catch (e) {
+    if (binder.pending) return;
+    $("lookupHint").textContent = "Not found or unreadable: " + (e.message || e);
+  }
+  renderCert();
+}
+
+async function doAction(action, build) {
+  const requested = $("lookupId").value.trim();
+  try {
+    await binder.act(action, requested, async (id, status, guard) => {
+      await sendTx(action, build(id, status), guard);
     });
-    $("lookupId").addEventListener("input", renderCert);
+  } catch (e) {
+    log((e instanceof BindingError ? "Blocked: " : "Failed: ") + (e.shortMessage || e.message), "err");
+  }
+  await Promise.all([loadProduct(requested), refreshBalance(), loadList()]);
+}
 
-    // Refresh the whole list
-    $("btnReload").onclick = loadList;
+// ---------- rendering ----------
+function renderHistory(h) {
+  if (!h?.length) return "";
+  const items = h.map((e) => {
+    const t = e.type;
+    let txt = "";
+    if (t === "REGISTER") txt = "Registered by " + short(e.by);
+    else if (t === "VERIFY") txt = `Verified: ${e.verdict}` + (e.reasoning ? `. ${e.reasoning}` : "");
+    else if (t === "EVIDENCE_UPDATED") txt = "Evidence updated";
+    else if (t === "CHALLENGE") txt = `Challenged by ${short(e.by)}: “${e.reason}”`;
+    else if (t === "RULING") txt = `Ruling, round ${e.round}: ${e.ruling}` + (e.reasoning ? `. ${e.reasoning}` : "");
+    else if (t === "SETTLED") txt = `Settled: ${e.final} (winner ${short(e.winner)}, ${e.rounds} round${e.rounds == 1 ? "" : "s"})`;
+    else txt = JSON.stringify(e);
+    return `<li><span class="t">${esc(t)}</span>${esc(txt)}</li>`;
+  }).join("");
+  return `<ul class="timeline">${items}</ul>`;
+}
 
-    // Deposit GEN
-    $("btnDep").onclick = async () => {
-      try {
-        const amount = Number($("depAmt").value);
-        if (!Number.isInteger(amount) || amount < 1 || amount > 10000) {
-          throw new Error("Amount must be a whole number from 1 to 10000.");
-        }
-        await sendTx("deposit", [BigInt(amount)]);
-        await refreshBalance();
-      } catch (error) {
-        log(
-          "Deposit failed: " +
-          (error?.shortMessage || error?.message || String(error)),
-          "err"
-        );
-      }
-    };
+function actionsHtml(p) {
+  const s = p.status, seller = same(me, p.registered_by), chal = same(me, p.challenger);
+  const note = (t) => `<p class="hint">${t}</p>`;
+  if (!me) return note("Connect a wallet or key to act on this product.");
+  if (s === "PENDING") return `<button id="aVerify">Verify authenticity</button>` + note("Validators read the evidence page and decide VERIFIED or REJECTED.");
+  if (s === "REJECTED") return seller
+    ? `<label for="aUrl">New evidence URL</label><input id="aUrl" type="text" placeholder="https://…">
+       <div class="row" style="margin-top:8px"><button id="aUpdate">Update evidence (locks ${BOND})</button></div>`
+    : note("Only the registrant can submit new evidence.");
+  if (s === "VERIFIED") return seller
+    ? note("The registrant cannot challenge their own claim.")
+    : `<label for="aCUrl">Counter-evidence URL (must be new for this product)</label><input id="aCUrl" type="text" placeholder="https://…">
+       <label for="aCReason">Reason</label><input id="aCReason" type="text" placeholder="Why the claim is false">
+       <div class="row" style="margin-top:8px"><button id="aChallenge" class="danger">Challenge (locks ${BOND})</button></div>`;
+  if (s === "DISPUTED") return `<button id="aResolve">Resolve challenge</button>` + note("Anyone can trigger the round 1 ruling. Bonds move only after appeal or finalize.");
+  if (s === "RULED") {
+    const loser = p.ruling === "UPHELD" ? p.registered_by : p.challenger;
+    const iAmLoser = same(me, loser);
+    return `<p>Round ${p.ruling_round} ruling: <b>${esc(p.ruling)}</b>. The losing side is ${esc(short(loser))}${iAmLoser ? " (you)" : ""}.</p>
+      <div class="row">
+        <button id="aAppeal" ${iAmLoser ? "" : "disabled"}>Appeal (locks ${APPEAL_BOND})</button>
+        <button id="aFinalize" class="alt">Finalize</button>
+      </div>` + note("Appeal runs one stricter round and settles at once. Finalize accepts the round 1 ruling.");
+  }
+  return note("This product is settled.");
+}
 
-    // Register a new product
-    $("btnReg").onclick = async () => {
-      try {
-        const id     = $("rId").value.trim();
-        const origin = $("rOrigin").value.trim();
-        const url    = $("rUrl").value.trim();
+function renderCert() {
+  const host = $("certHost");
+  const d = binder.displayed;
+  if (binder.pending) { host.innerHTML = `<div class="panel hint">Loading product…</div>`; return; }
+  if (!d) { host.innerHTML = ""; return; }
+  const p = d.product;
+  const typed = $("lookupId").value.trim();
+  const diverged = typed !== d.id;
+  host.innerHTML = `
+  <article class="cert" aria-live="polite">
+    <div class="stamp s-${esc(p.status)}">${esc(p.status)}</div>
+    <h3>${esc(p.product_id)}</h3>
+    <p class="claim">Claimed origin: <b>${esc(p.claimed_origin)}</b></p>
+    <dl>
+      <dt>Evidence</dt><dd><a href="${esc(p.evidence_url)}" target="_blank" rel="noopener noreferrer">${esc(p.evidence_url)}</a></dd>
+      <dt>Registrant</dt><dd>${esc(p.registered_by)}</dd>
+      ${p.challenger ? `<dt>Challenger</dt><dd>${esc(p.challenger)}</dd>
+      <dt>Counter-evidence</dt><dd><a href="${esc(p.counter_evidence)}" target="_blank" rel="noopener noreferrer">${esc(p.counter_evidence)}</a></dd>` : ""}
+      <dt>Challenges</dt><dd>${esc(p.challenges_used)} of ${esc(p.max_challenges)}</dd>
+    </dl>
+    <div class="bonds">
+      <span class="chip">seller bond ${esc(p.seller_bond)}</span>
+      <span class="chip">challenger bond ${esc(p.challenger_bond)}</span>
+      <span class="chip">appeal bond ${esc(p.appeal_bond)}</span>
+      <span class="chip">round ${esc(p.ruling_round)}</span>
+    </div>
+    ${p.reasoning ? `<p class="reason">“${esc(p.reasoning)}”</p>` : ""}
+    ${renderHistory(p.history)}
+    <div class="actions" id="actions">
+      ${binder.stale ? `<p class="stale">Display is out of date. Reload before acting.</p>` : ""}
+      ${diverged ? `<p class="stale">The ID field says “${esc(typed)}” but this card shows “${esc(d.id)}”. Press Load, or restore the ID.</p>` : actionsHtml(p)}
+    </div>
+  </article>`;
+  wireActions();
+  if (binder.stale || diverged) host.querySelectorAll(".actions button").forEach((b) => (b.disabled = true));
+}
 
-        if (!id || !origin || !safeHttpUrl(url)) {
-          throw new Error("Fill all fields; the evidence URL must be a valid http(s) URL.");
-        }
+function wireActions() {
+  const on = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
+  on("aVerify",   () => doAction("verify_authenticity", (id) => [id]));
+  on("aUpdate",   () => doAction("update_evidence", (id) => [id, $("aUrl").value.trim()]));
+  on("aChallenge",() => doAction("challenge_product", (id, st) => [id, $("aCUrl").value.trim(), $("aCReason").value.trim(), st]));
+  on("aResolve",  () => doAction("resolve_challenge", (id, st) => [id, st]));
+  on("aAppeal",   () => doAction("appeal", (id, st) => [id, st]));
+  on("aFinalize", () => doAction("finalize", (id, st) => [id, st]));
+}
 
-        await sendTx("registerproduct", [id, origin, url]);
+async function loadList() {
+  try {
+    const r = await read("get_products", [0n, 50n]);
+    $("regCount").textContent = `(${r.total})`;
+    const ul = $("reg");
+    if (!r.items?.length) { ul.innerHTML = `<li class="hint">No products yet.</li>`; return; }
+    ul.innerHTML = r.items.slice().reverse().map((it) =>
+      `<li><button data-id="${esc(it.product_id)}"><span>${esc(it.product_id)} <span class="hint">${esc(it.claimed_origin)}</span></span>
+       <span class="st s-${esc(it.status)}">${esc(it.status)}</span></button></li>`).join("");
+    ul.querySelectorAll("button").forEach((b) => (b.onclick = () => loadProduct(b.dataset.id)));
+  } catch (e) {
+    $("reg").innerHTML = `<li class="hint">Could not load the list.</li>`;
+    log("get_products failed: " + (e.shortMessage || e.message), "err");
+  }
+}
 
-        // Refresh list and balance concurrently, then show the newly added product
-        await Promise.all([loadList(), refreshBalance()]);
-        await loadProduct(id);
-      } catch (error) {
-        log(
-          "Register failed: " +
-          (error?.shortMessage || error?.message || String(error)),
-          "err"
-        );
-      }
-    };
+// ---------- wiring ----------
+$("btnLoad").onclick = () => loadProduct($("lookupId").value.trim());
+$("lookupId").addEventListener("keydown", (e) => { if (e.key === "Enter") loadProduct($("lookupId").value.trim()); });
+$("lookupId").addEventListener("input", () => renderCert());
+$("btnReload").onclick = loadList;
 
-    /* -------------------------------------------------
-       Startup
-    ------------------------------------------------- */
-    console.log(
-      `SDK chain selected: ${studioDevnet?.name || "studioDevnet"} ` +
-      `(id ${studioDevnet?.id ?? "unknown"})`
-    );
-    loadList();
-  </script>
+$("btnDep").onclick = async () => {
+  try {
+    const n = Number($("depAmt").value);
+    if (!Number.isInteger(n) || n < 1 || n > 10000) throw new Error("Amount must be a whole number from 1 to 10000.");
+    await sendTx("deposit", [BigInt(n)]);
+  } catch (e) { log("Deposit failed: " + (e.shortMessage || e.message), "err"); }
+  refreshBalance();
+};
+$("btnReg").onclick = async () => {
+  try {
+    const id = $("rId").value.trim(), origin = $("rOrigin").value.trim(), url = $("rUrl").value.trim();
+    if (!id || !origin || !/^https?:\/\//.test(url)) throw new Error("Fill all fields; the URL must start with http(s)://");
+    await sendTx("register_product", [id, origin, url]);
+    await Promise.all([loadList(), refreshBalance()]);
+    loadProduct(id);
+  } catch (e) { log("Register failed: " + (e.shortMessage || e.message), "err"); }
+};
+
+loadList();
+</script>
 </body>
 </html>
