@@ -157,7 +157,7 @@ function toObj(x) {                       // Map / BigInt -> plain JSON-ish
 function log(msg, kind = "") {
   const d = document.createElement("div");
   if (kind) d.className = kind;
-  d.textContent = new Date().toLocaleTimeString() + "  " + msg;
+  d.textContent = new Date().toLocaleTimeString() + "  " + String(msg).slice(0, 400);
   const box = $("log"); box.prepend(d);
 }
 const short = (a) => (a ? a.slice(0, 6) + "…" + a.slice(-4) : "-");
@@ -216,7 +216,7 @@ $("btnWallet").onclick = async () => {
   try {
     const [addr] = await window.ethereum.request({ method: "eth_requestAccounts" });
     const client = createClient({ chain, account: addr, provider: window.ethereum });
-    try { await client.connect("studionet"); } catch (e) { log("connect(): " + errText(e)); }
+    try { await client.connect("studionet"); } catch (e) { /* snaps are optional, wallet still works */ }
     setAccount(addr, client);
     log("Wallet connected " + short(addr), "ok");
   } catch (e) { log("Wallet: " + errText(e), "err"); }
