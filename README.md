@@ -71,7 +71,7 @@ The cases below ran on the first v2 deployment (`0x29E2166fAFD8755A75d33F229e014
 | V2-01 | strong counter-evidence, resolve, finalize | UPHELD, REVOKED; seller bond moved to challenger, challenger bond returned |
 | V2-02 | weak counter-evidence, resolve, appeal by challenger | DISMISSED in rounds 1 and 2, VERIFIED; challenger bond and appeal bond (300) moved to the registrant |
 | V2-03 | same as V2-02 | same outcome; balances matched the expected arithmetic (A free 800 / locked 200, B free 500 / locked 0, total 1500 = 3 × 500 deposited) |
-| v0.4 redeploy | deposit, register, verify, challenge, resolve, appeal on the new address | _fill in after re-test_ |
+| v0.4 redeploy (N-01) | deposit ×2, register, verify, weak challenge, resolve, appeal by the challenger | VERIFIED, DISMISSED in rounds 1 and 2, SETTLED VERIFIED (2 rounds), winner = registrant; registrant balance free 700 / locked 100; the frontend on GitHub Pages reads the registry and shows the certificate with its full history |
 | Guards | stale `expected_status` (wrong status, trailing space, duplicate appeal) | rejected with `status changed: expected …, got …` |
 
 ## Limitations
