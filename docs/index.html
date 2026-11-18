@@ -129,11 +129,15 @@
 </div>
 
 <script type="module">
-import { createClient, createAccount, isSuccessful } from "https://esm.sh/genlayer-js@2.0.0-rc.1";
-import * as chains from "https://esm.sh/genlayer-js@2.0.0-rc.1/chains";
 import { createBinder, ACTION_RULES, BindingError } from "./binding.js";
 
-const CONTRACT = "0x29E2166fAFD8755A75d33F229e014dBb951e8B0c";
+// SDK version can be switched from the URL for diagnosis: index.html?sdk=latest
+const SDK = new URLSearchParams(location.search).get("sdk") || "2.0.0-rc.1";
+const { createClient, createAccount, isSuccessful } = await import(`https://esm.sh/genlayer-js@${SDK}`);
+const chains = await import(`https://esm.sh/genlayer-js@${SDK}/chains`);
+
+// Override without editing the file after a redeploy: index.html?contract=0x...
+const CONTRACT = new URLSearchParams(location.search).get("contract") || "0xcA81E6fc29dd7bCf0d9a14a44D701897E8aB8538";
 const EXPLORER = "https://explorer-studio-next.genlayer.com/address/" + CONTRACT;
 // Studio Next = chain id 61997. Pick it by id so a renamed export cannot send us to another network.
 const chain = Object.values(chains).find((c) => c && Number(c.id) === 61997) || chains.studioDevnet || chains.studionet;
@@ -165,7 +169,12 @@ $("meta").innerHTML = `Contract <a href="${EXPLORER}" target="_blank" rel="noope
 // A throwaway account only supplies a "from" address for read calls; it never signs or holds anything.
 const readAccount = createAccount();
 const readClient = createClient({ chain, account: readAccount });
-log(`Chain ${chain?.name ?? "?"} (id ${chain?.id ?? "?"}). SDK chains: ${Object.keys(chains).join(", ")}`);
+log(`Page build v2.3 · genlayer-js@${SDK} · chain ${chain?.name ?? "?"} (id ${chain?.id ?? "?"}) · rpc ${chain?.rpcUrls?.default?.http?.[0] ?? "?"}`);
+function errText(e) {
+  const parts = [e?.shortMessage || e?.message, e?.details, e?.cause?.message, e?.cause?.details];
+  try { if (e?.data) parts.push(JSON.stringify(e.data)); } catch {}
+  return [...new Set(parts.filter(Boolean))].join(" | ");
+}
 let writeClient = null;
 let me = null; // address string
 
@@ -181,18 +190,18 @@ const READ_VARIANTS = [
 let readMode = 0;
 async function read(functionName, args = []) {
   const base = { address: CONTRACT, functionName, args };
-  let lastErr;
+  const tried = [];
   for (let i = readMode; i < READ_VARIANTS.length; i++) {
     try {
       const out = toObj(await readClient.readContract(READ_VARIANTS[i](base)));
       if (i !== readMode) { readMode = i; log("Read call shape #" + i + " works."); }
       return out;
     } catch (e) {
-      lastErr = e;
+      tried.push(`#${i}: ${errText(e)}`);
       if (!/invalid param|missing/i.test((e.shortMessage || "") + " " + (e.message || ""))) throw e;
     }
   }
-  throw lastErr;
+  throw new Error("all read call shapes failed. " + tried.join(" || "));
 }
 
 function setAccount(address, client) {
@@ -207,10 +216,10 @@ $("btnWallet").onclick = async () => {
   try {
     const [addr] = await window.ethereum.request({ method: "eth_requestAccounts" });
     const client = createClient({ chain, account: addr, provider: window.ethereum });
-    try { await client.connect("studionet"); } catch (e) { log("connect(): " + (e.shortMessage || e.message)); }
+    try { await client.connect("studionet"); } catch (e) { log("connect(): " + errText(e)); }
     setAccount(addr, client);
     log("Wallet connected " + short(addr), "ok");
-  } catch (e) { log("Wallet: " + (e.shortMessage || e.message), "err"); }
+  } catch (e) { log("Wallet: " + errText(e), "err"); }
 };
 if (window.ethereum?.on) window.ethereum.on("accountsChanged", () => { me = null; writeClient = null;
   $("acct").textContent = "Wallet account changed. Press Connect wallet again."; renderCert(); });
@@ -222,7 +231,7 @@ $("btnKeyGo").onclick = () => {
     const account = createAccount(pk);
     setAccount(account.address, createClient({ chain, account }));
     log("Using test key " + short(account.address), "ok");
-  } catch (e) { log("Key: " + (e.shortMessage || e.message), "err"); }
+  } catch (e) { log("Key: " + errText(e), "err"); }
 };
 
 async function refreshBalance() {
@@ -232,7 +241,7 @@ async function refreshBalance() {
     $("bal").textContent = `Bond balance: free ${b.free} · locked ${b.locked}`;
   } catch (e) {
     $("bal").textContent = "Balance unavailable";
-    log("get_balance failed: " + (e.shortMessage || e.message), "err");
+    log("get_balance failed: " + errText(e), "err");
   }
 }
 
@@ -292,7 +301,7 @@ async function doAction(action, build) {
       await sendTx(action, build(id, status), guard);
     });
   } catch (e) {
-    log((e instanceof BindingError ? "Blocked: " : "Failed: ") + (e.shortMessage || e.message), "err");
+    log((e instanceof BindingError ? "Blocked: " : "Failed: ") + errText(e), "err");
   }
   await Promise.all([loadProduct(requested), refreshBalance(), loadList()]);
 }
@@ -401,7 +410,7 @@ async function loadList() {
     ul.querySelectorAll("button").forEach((b) => (b.onclick = () => loadProduct(b.dataset.id)));
   } catch (e) {
     $("reg").innerHTML = `<li class="hint">Could not load the list.</li>`;
-    log("get_products failed: " + (e.shortMessage || e.message), "err");
+    log("get_products failed: " + errText(e), "err");
   }
 }
 
@@ -416,7 +425,7 @@ $("btnDep").onclick = async () => {
     const n = Number($("depAmt").value);
     if (!Number.isInteger(n) || n < 1 || n > 10000) throw new Error("Amount must be a whole number from 1 to 10000.");
     await sendTx("deposit", [BigInt(n)]);
-  } catch (e) { log("Deposit failed: " + (e.shortMessage || e.message), "err"); }
+  } catch (e) { log("Deposit failed: " + errText(e), "err"); }
   refreshBalance();
 };
 $("btnReg").onclick = async () => {
@@ -426,7 +435,7 @@ $("btnReg").onclick = async () => {
     await sendTx("register_product", [id, origin, url]);
     await Promise.all([loadList(), refreshBalance()]);
     loadProduct(id);
-  } catch (e) { log("Register failed: " + (e.shortMessage || e.message), "err"); }
+  } catch (e) { log("Register failed: " + errText(e), "err"); }
 };
 
 loadList();
